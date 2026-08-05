@@ -36,10 +36,10 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/users" element={<ProtectedRoute roles={["owner"]}><Users /></ProtectedRoute>} />
             <Route path="/projects" element={<Projects />} />
-            <Route path="/locations" element={<Locations />} />
+            <Route path="/locations" element={<ProtectedRoute roles={["owner", "bendahara", "tim"]}><Locations /></ProtectedRoute>} />
             <Route path="/activities" element={<ProtectedRoute roles={["owner"]}><Activities /></ProtectedRoute>} />
             <Route path="/tagihan" element={<ProtectedRoute roles={["owner", "penagihan", "bendahara"]}><Tagihan /></ProtectedRoute>} />
-            <Route path="/cashbook" element={<CashBook />} />
+            <Route path="/cashbook" element={<ProtectedRoute roles={["owner", "bendahara", "tim"]}><CashBook /></ProtectedRoute>} />
             <Route path="/kasbon" element={<Kasbon />} />
             <Route path="/team-payments" element={<ProtectedRoute roles={["owner", "bendahara"]}><TeamPayments /></ProtectedRoute>} />
             <Route path="/history" element={<History />} />

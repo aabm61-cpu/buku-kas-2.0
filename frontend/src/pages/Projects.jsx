@@ -8,11 +8,20 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, FolderKanban, Building2, Trash2, Pencil } from "lucide-react";
+import { Plus, FolderKanban, Building2, Trash2, Pencil, Briefcase } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate } from "@/lib/format";
 
-const empty = { name: "", client_name: "", description: "", status: "aktif" };
+const WORK_TYPES = ["Renov", "Return to LL Renov", "Addwork", "Maintenance", "Maintenance Return to LL"];
+const empty = { name: "", work_type: "Renov", client_name: "", description: "", status: "aktif" };
+
+const workTypeColor = {
+  "Renov": "bg-blue-100 text-blue-700",
+  "Return to LL Renov": "bg-purple-100 text-purple-700",
+  "Addwork": "bg-orange-100 text-orange-700",
+  "Maintenance": "bg-green-100 text-green-700",
+  "Maintenance Return to LL": "bg-teal-100 text-teal-700",
+};
 
 export default function Projects() {
   const { user } = useAuth();
@@ -26,6 +35,7 @@ export default function Projects() {
   useEffect(() => { load(); }, []);
 
   const submit = async () => {
+    if (!form.name.trim()) { toast.error("Nama HUB/SOC wajib diisi"); return; }
     try {
       if (editing) { await api.patch(`/projects/${editing.id}`, form); toast.success("Proyek diperbarui"); }
       else { await api.post("/projects", form); toast.success("Proyek dibuat"); }
@@ -33,7 +43,7 @@ export default function Projects() {
     } catch (e) { toast.error(e.response?.data?.detail || "Gagal"); }
   };
 
-  const startEdit = (p) => { setEditing(p); setForm({ name: p.name, client_name: p.client_name, description: p.description || "", status: p.status }); setOpen(true); };
+  const startEdit = (p) => { setEditing(p); setForm({ name: p.name, work_type: p.work_type || "Renov", client_name: p.client_name || "", description: p.description || "", status: p.status }); setOpen(true); };
 
   const remove = async (id) => {
     if (!window.confirm("Hapus proyek?")) return;
@@ -49,7 +59,7 @@ export default function Projects() {
         <div>
           <div className="text-xs tracking-widest text-slate-500 mb-2">PORTOFOLIO</div>
           <h1 className="font-display font-extrabold text-3xl text-slate-900">Proyek</h1>
-          <p className="text-slate-500 mt-1">Semua proyek renovasi yang dikelola perusahaan.</p>
+          <p className="text-slate-500 mt-1">Daftar HUB/SOC yang dikelola perusahaan.</p>
         </div>
         {canWrite && (
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm(empty); } }}>
@@ -57,8 +67,17 @@ export default function Projects() {
             <DialogContent className="bg-white">
               <DialogHeader><DialogTitle>{editing ? "Edit Proyek" : "Proyek Baru"}</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <div><Label>Nama Proyek</Label><Input data-testid="project-name-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-                <div><Label>Nama Klien</Label><Input data-testid="project-client-input" value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} /></div>
+                <div><Label>Nama HUB/SOC <span className="text-red-500">*</span></Label><Input data-testid="project-name-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="mis. HUB Jakarta Selatan" /></div>
+                <div>
+                  <Label>Jenis Pekerjaan <span className="text-red-500">*</span></Label>
+                  <Select value={form.work_type} onValueChange={v => setForm({ ...form, work_type: v })}>
+                    <SelectTrigger data-testid="project-worktype-select"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {WORK_TYPES.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Nama Klien</Label><Input data-testid="project-client-input" value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} placeholder="Opsional" /></div>
                 <div><Label>Deskripsi</Label><Textarea data-testid="project-desc-input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
                 <div>
                   <Label>Status</Label>
@@ -83,10 +102,16 @@ export default function Projects() {
           <Card key={p.id} className="p-5 card-lift bg-white border-slate-200" data-testid={`project-card-${p.id}`}>
             <div className="flex items-start justify-between mb-3">
               <div className="h-10 w-10 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center"><FolderKanban className="h-5 w-5" /></div>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyle[p.status]}`}>{p.status.toUpperCase()}</span>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyle[p.status]}`}>{p.status?.toUpperCase()}</span>
             </div>
             <h3 className="font-display font-bold text-lg text-slate-900">{p.name}</h3>
-            <div className="text-sm text-slate-500 mt-1 flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> {p.client_name}</div>
+            {p.work_type && (
+              <div className="mt-2 inline-flex items-center gap-1.5">
+                <Briefcase className="h-3.5 w-3.5 text-slate-400" />
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${workTypeColor[p.work_type] || "bg-slate-100 text-slate-700"}`}>{p.work_type}</span>
+              </div>
+            )}
+            {p.client_name && <div className="text-sm text-slate-500 mt-3 flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> {p.client_name}</div>}
             {p.description && <p className="text-sm text-slate-600 mt-3 line-clamp-2">{p.description}</p>}
             <div className="text-xs text-slate-400 mt-4">{formatDate(p.created_at)}</div>
             {canWrite && (

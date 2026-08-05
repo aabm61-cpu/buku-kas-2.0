@@ -134,9 +134,12 @@ class UserUpdate(BaseModel):
     active: Optional[bool] = None
     password: Optional[str] = None
 
+WORK_TYPES = ("Renov", "Return to LL Renov", "Addwork", "Maintenance", "Maintenance Return to LL")
+
 class ProjectIn(BaseModel):
-    name: str
-    client_name: str
+    name: str  # Nama HUB/SOC
+    work_type: Literal["Renov", "Return to LL Renov", "Addwork", "Maintenance", "Maintenance Return to LL"] = "Renov"
+    client_name: Optional[str] = ""
     description: Optional[str] = ""
     status: Optional[Literal["aktif", "selesai", "ditunda"]] = "aktif"
 
