@@ -1,0 +1,117 @@
+{
+  "project_overview": {
+    "description": "Indonesian accounting/bookkeeping app for a renovation company with 4 user roles.",
+    "emotional_tone": "Professional, trustworthy, grounded, industrial, approachable for field workers.",
+    "theme": "Light theme default for field outdoor visibility. High contrast.",
+    "industry": "Construction/Renovation"
+  },
+  "typography": {
+    "headings": {
+      "family": "Manrope",
+      "import_url": "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap",
+      "rules": "Use for all headings. Tracking tight for larger sizes."
+    },
+    "body": {
+      "family": "IBM Plex Sans",
+      "import_url": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap",
+      "rules": "Use for body, data tables, and numbers for high legibility."
+    }
+  },
+  "colors": {
+    "archetype": "ORGANIC & EARTHY mixed with SWISS & HIGH-CONTRAST",
+    "palette": {
+      "primary": "Tailwind blue-700 (#1d4ed8) - Blueprint Blue",
+      "accent": "Tailwind orange-500 (#f97316) - Safety Orange",
+      "background": "Tailwind slate-50 (#f8fafc) - Concrete Light",
+      "surface": "#FFFFFF - White",
+      "text_main": "Tailwind slate-900 (#0f172a)",
+      "text_muted": "Tailwind slate-500 (#64748b)",
+      "border": "Tailwind slate-200 (#e2e8f0)",
+      "success": "Tailwind green-600",
+      "danger": "Tailwind red-600"
+    },
+    "rules": "No full-screen gradients. High contrast for readability outdoors. Ensure minimum 4.5:1 ratio for text."
+  },
+  "layouts": {
+    "general": "High Density Grid for data dashboards (grid-cols-1 md:grid-cols-3 lg:grid-cols-4). Mobile-first responsive.",
+    "spacing": "Generous spacing philosophy (p-6, p-8) for containers. Tight gaps (gap-4) for data widgets.",
+    "surface": "Solid backgrounds for data clarity (NO glassmorphism for data tables). 1px subtle borders (border-slate-200). Subtle roundness (max 8px border-radius)."
+  },
+  "components": {
+    "forms": "Short, validated. Use Shadcn Form, Input, Select. Left-align labels.",
+    "buttons": "Pill-shaped or slightly rounded. Distinct hover states.",
+    "tables": "Shadcn Table. Zebra striping or clear row borders. Include IDR formatting for all currencies (Rp).",
+    "photo_upload": "Custom Base64 uploader for 'Nota' (Receipts) with preview. Mandatory for 'Tim' role.",
+    "icons": "lucide-react. Use construction/finance metaphors (HardHat, Building2, Wallet, FileText, Camera)."
+  },
+  "role_based_access": {
+    "Owner": "Full access. Dashboard with app-wide activity feed, user management, project & location management.",
+    "Penagihan": "Billing dashboard. Manage 'Tagihan' (Invoices) per project/client. Send/Export reminders.",
+    "Bendahara": "Treasurer dashboard. Review 'Buku Kas' (Cash Book) from all locations. Calculate team pay. Assign PIC.",
+    "Tim": "Field team dashboard. Add income/expense 'Buku Kas' with Base64 'Nota'. Add 'Kasbon' (Cash advance). View location history. Mobile-friendly view."
+  },
+  "indonesian_terminology": {
+    "rules": "Bahasa Indonesia sepenuhnya.",
+    "mappings": {
+      "Cash Book": "Buku Kas",
+      "Invoice": "Tagihan",
+      "Cash Advance": "Kasbon",
+      "Receipt": "Nota",
+      "Project": "Proyek",
+      "Location": "Lokasi",
+      "Owner": "Owner",
+      "Billing": "Penagihan",
+      "Treasurer": "Bendahara",
+      "Field Team": "Tim Lapangan"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": "Subtle, realistic shadows. E.g., shadow-sm for cards, shadow-md on hover.",
+    "borders": "1px solid slate-200 on cards. Grid Borders for data-heavy sections.",
+    "motion": "Fast, subtle micro-interactions. Hover lifts (-translate-y-1) on cards."
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1721244654392-9c912a6eb236",
+        "category": "login_background",
+        "description": "Blueprint of a building, perfect for an architectural/construction login screen."
+      },
+      {
+        "url": "https://images.pexels.com/photos/17729218/pexels-photo-17729218.jpeg",
+        "category": "hero_or_fallback",
+        "description": "Modern concrete architecture texture."
+      }
+    ]
+  },
+  "accessibility": {
+    "contrast": "APCA/WCAG AA compliant. Text over images must have dark overlay.",
+    "testing_attributes": "All interactive elements MUST include data-testid attributes."
+  },
+  "instructions_to_main_agent": [
+    "Use JS/JSX files only (.js, .jsx). Do not use TypeScript (.ts, .tsx).",
+    "Implement username/password login only (no email).",
+    "Format all currency values as IDR (Rp 1.000.000).",
+    "For the 'Tim' role, the camera/photo upload must compress or convert the image to base64 format for storage.",
+    "Build Shadcn components by customizing standard HTML/Tailwind.",
+    "Ensure the UI is responsive, especially for the 'Tim' role which will use it on mobile devices in the field.",
+    "Apply `data-testid` to all inputs, buttons, and links.",
+    "DO NOT use complete `transparent` background in header, overlays, any surface that has content under it. Example: Dropdown with transparent background"
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) only where appropriate (not on data tables).",
+    "You MUST NOT apply universal transition. Eg: transition: all. Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use sonner for toasts, located in /app/src/components/ui/sonner.jsx"
+  ]
+}
