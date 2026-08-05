@@ -262,7 +262,9 @@ async def update_user(uid: str, payload: UserUpdate, user=Depends(require_role("
 async def delete_user(uid: str, user=Depends(require_role("owner"))):
     if uid == user["id"]:
         raise HTTPException(400, "Tidak bisa menghapus diri sendiri")
-    await db.users.delete_one({"id": uid})
+    res = await db.users.delete_one({"id": uid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "User tidak ditemukan")
     await log_activity(user, "delete", "user", uid)
     return {"ok": True}
 
@@ -287,7 +289,9 @@ async def create_project(payload: ProjectIn, user=Depends(require_role("owner", 
 
 @api.patch("/projects/{pid}")
 async def update_project(pid: str, payload: ProjectIn, user=Depends(require_role("owner", "penagihan"))):
-    await db.projects.update_one({"id": pid}, {"$set": payload.model_dump()})
+    res = await db.projects.update_one({"id": pid}, {"$set": payload.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Proyek tidak ditemukan")
     await log_activity(user, "update", "project", pid)
     p = await db.projects.find_one({"id": pid})
     return clean_doc(p)
@@ -314,7 +318,9 @@ async def create_location(payload: LocationIn, user=Depends(require_role("owner"
 
 @api.patch("/locations/{lid}")
 async def update_location(lid: str, payload: LocationIn, user=Depends(require_role("owner", "bendahara"))):
-    await db.locations.update_one({"id": lid}, {"$set": payload.model_dump()})
+    res = await db.locations.update_one({"id": lid}, {"$set": payload.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Lokasi tidak ditemukan")
     await log_activity(user, "update", "location", lid)
     l = await db.locations.find_one({"id": lid})
     return clean_doc(l)
@@ -329,12 +335,16 @@ async def delete_location(lid: str, user=Depends(require_role("owner"))):
 @api.get("/assignments")
 async def list_assignments(location_id: Optional[str] = None, user=Depends(get_current_user)):
     q = {}
-    if location_id:
-        q["location_id"] = location_id
     if user["role"] == "tim":
-        # tim only sees assignments for their locations
         allowed = await user_location_ids(user) or []
-        q["location_id"] = {"$in": allowed} if not location_id else location_id
+        if location_id:
+            if location_id not in allowed:
+                raise HTTPException(403, "Akses lokasi ditolak")
+            q["location_id"] = location_id
+        else:
+            q["location_id"] = {"$in": allowed}
+    elif location_id:
+        q["location_id"] = location_id
     return [clean_doc(a) async for a in db.location_assignments.find(q)]
 
 @api.post("/assignments")
@@ -344,6 +354,14 @@ async def create_assignment(payload: AssignmentIn, user=Depends(require_role("ow
         exists = await db.location_assignments.find_one({"location_id": payload.location_id, "user_id": user["id"]})
         if not exists:
             raise HTTPException(403, "Anda tidak ditugaskan di lokasi ini")
+    loc = await db.locations.find_one({"id": payload.location_id})
+    if not loc:
+        raise HTTPException(404, "Lokasi tidak ditemukan")
+    target = await db.users.find_one({"id": payload.user_id})
+    if not target:
+        raise HTTPException(404, "User target tidak ditemukan")
+    if target["role"] != "tim":
+        raise HTTPException(400, "Hanya user dengan peran 'tim' yang dapat ditugaskan")
     if await db.location_assignments.find_one({"location_id": payload.location_id, "user_id": payload.user_id}):
         raise HTTPException(400, "User sudah ditugaskan di lokasi ini")
     doc = {"id": new_id(), **payload.model_dump(), "created_at": now_iso(), "added_by": user["id"]}
@@ -361,13 +379,17 @@ async def delete_assignment(aid: str, user=Depends(require_role("owner", "bendah
 @api.get("/cashbook")
 async def list_cashbook(location_id: Optional[str] = None, user=Depends(get_current_user)):
     q = {}
-    if location_id:
-        q["location_id"] = location_id
     allowed = await user_location_ids(user)
-    if allowed is not None:
-        q["location_id"] = {"$in": allowed} if not location_id else location_id
-        if location_id and location_id not in allowed:
-            raise HTTPException(403, "Akses lokasi ditolak")
+    if allowed is None:
+        if location_id:
+            q["location_id"] = location_id
+    else:
+        if location_id:
+            if location_id not in allowed:
+                raise HTTPException(403, "Akses lokasi ditolak")
+            q["location_id"] = location_id
+        else:
+            q["location_id"] = {"$in": allowed}
     entries = [clean_doc(e) async for e in db.cashbook.find(q).sort("date", -1)]
     return entries
 
@@ -418,11 +440,17 @@ async def delete_cashbook(cid: str, user=Depends(get_current_user)):
 @api.get("/kasbon")
 async def list_kasbon(location_id: Optional[str] = None, user=Depends(get_current_user)):
     q = {}
-    if location_id:
-        q["location_id"] = location_id
     allowed = await user_location_ids(user)
-    if allowed is not None:
-        q["location_id"] = {"$in": allowed} if not location_id else location_id
+    if allowed is None:
+        if location_id:
+            q["location_id"] = location_id
+    else:
+        if location_id:
+            if location_id not in allowed:
+                raise HTTPException(403, "Akses lokasi ditolak")
+            q["location_id"] = location_id
+        else:
+            q["location_id"] = {"$in": allowed}
     return [clean_doc(k) async for k in db.kasbon.find(q).sort("date", -1)]
 
 @api.post("/kasbon")
@@ -547,7 +575,10 @@ async def update_team_payment(pid: str, payload: TeamPaymentUpdate, user=Depends
 
 @api.delete("/team-payments/{pid}")
 async def delete_team_payment(pid: str, user=Depends(require_role("owner", "bendahara"))):
-    await db.team_payments.delete_one({"id": pid})
+    res = await db.team_payments.delete_one({"id": pid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Tidak ditemukan")
+    await log_activity(user, "delete", "team_payment", pid)
     return {"ok": True}
 
 # ---------------- Activities ----------------
@@ -575,9 +606,15 @@ async def dashboard_stats(user=Depends(get_current_user)):
         "total_pengeluaran": total_out,
         "saldo": total_in - total_out,
         "jumlah_lokasi": await db.locations.count_documents({} if allowed is None else {"id": {"$in": allowed}}),
-        "jumlah_proyek": await db.projects.count_documents({}),
+        "jumlah_proyek": 0,
         "jumlah_user": await db.users.count_documents({}),
     }
+
+    if allowed is None:
+        stats["jumlah_proyek"] = await db.projects.count_documents({})
+    else:
+        locs = [l async for l in db.locations.find({"id": {"$in": allowed}}, {"project_id": 1, "_id": 0})]
+        stats["jumlah_proyek"] = len({l["project_id"] for l in locs})
 
     if user["role"] in ("owner", "penagihan"):
         total_tagihan = 0.0
