@@ -8,33 +8,31 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, HardHat, Wrench } from "lucide-react";
-import { formatIDR } from "@/lib/format";
 
 const WORK_TYPES = ["Renov", "Return to LL Renov", "Addwork", "Maintenance", "Maintenance Return to LL"];
-const emptyForm = { name: "", work_type: "Renov", client_name: "", project_value: "", retention_percent: 5, maintenance_notes: "" };
+const emptyForm = { name: "", work_type: "Renov", client_name: "", maintenance_notes: "" };
 
 export default function QuickAddProject({ onCreated }) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const isMaintenance = form.work_type === "Maintenance";
-  const projectValue = Number(form.project_value || 0);
-  const retensiPct = Number(form.retention_percent || 0);
-  const retensiValue = projectValue * retensiPct / 100;
+
+  // Auto-uppercase every character typed into any text field
+  const upper = (v) => (v || "").toUpperCase();
 
   const submit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Nama HUB/SOC wajib diisi"); return; }
+    if (!form.client_name.trim()) { toast.error("Nama Klien wajib diisi"); return; }
+    if (isMaintenance && !form.maintenance_notes.trim()) { toast.error("Keterangan pekerjaan Maintenance wajib diisi"); return; }
     setSaving(true);
     try {
-      const payload = {
-        name: form.name.trim(),
+      await api.post("/projects", {
+        name: upper(form.name).trim(),
         work_type: form.work_type,
-        client_name: form.client_name,
-        project_value: Number(form.project_value) || 0,
-        retention_percent: Number(form.retention_percent) || 0,
-        maintenance_notes: isMaintenance ? form.maintenance_notes : "",
-      };
-      await api.post("/projects", payload);
+        client_name: upper(form.client_name).trim(),
+        maintenance_notes: isMaintenance ? upper(form.maintenance_notes) : "",
+      });
       toast.success("Proyek berhasil dibuat");
       setForm(emptyForm);
       onCreated?.();
@@ -47,24 +45,22 @@ export default function QuickAddProject({ onCreated }) {
     <Card className="p-6 bg-white border-slate-200 relative overflow-hidden">
       <div className="absolute top-0 right-0 h-32 w-32 bg-orange-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
       <div className="relative">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-5">
           <div className="h-10 w-10 rounded-lg bg-blue-700 text-white flex items-center justify-center"><HardHat className="h-5 w-5" /></div>
-          <div>
-            <div className="text-xs tracking-widest text-slate-500">FORM CEPAT</div>
-            <h2 className="font-display font-bold text-xl text-slate-900">Input Proyek Baru</h2>
-          </div>
+          <h2 className="font-display font-bold text-xl text-slate-900">Input Proyek Baru</h2>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label>Nama HUB/SOC <span className="text-red-500">*</span></Label>
               <Input
                 data-testid="quick-project-name-input"
                 value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="mis. HUB Jakarta Selatan / SOC Bekasi"
-                className="h-11 mt-1.5"
+                onChange={e => setForm({ ...form, name: upper(e.target.value) })}
+                placeholder="MIS. HUB JAKARTA SELATAN"
+                className="h-11 mt-1.5 uppercase"
+                autoComplete="off"
                 required
               />
             </div>
@@ -77,62 +73,33 @@ export default function QuickAddProject({ onCreated }) {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Nama Klien <span className="text-red-500">*</span></Label>
+              <Input
+                data-testid="quick-project-client-input"
+                value={form.client_name}
+                onChange={e => setForm({ ...form, client_name: upper(e.target.value) })}
+                placeholder="MIS. PT MITRA JAYA"
+                className="h-11 mt-1.5 uppercase"
+                autoComplete="off"
+                required
+              />
+            </div>
           </div>
 
           {isMaintenance && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <Label className="flex items-center gap-1.5 text-green-800"><Wrench className="h-3.5 w-3.5" /> Keterangan Pekerjaan Maintenance</Label>
+              <Label className="flex items-center gap-1.5 text-green-800"><Wrench className="h-3.5 w-3.5" /> Keterangan Pekerjaan Maintenance <span className="text-red-500">*</span></Label>
               <Textarea
                 data-testid="quick-project-maintenance-notes"
                 value={form.maintenance_notes}
-                onChange={e => setForm({ ...form, maintenance_notes: e.target.value })}
-                placeholder="Detail pekerjaan maintenance: mis. perbaikan AC, pengecatan ulang, ganti lampu…"
-                className="mt-1.5 min-h-[70px] text-sm"
+                onChange={e => setForm({ ...form, maintenance_notes: upper(e.target.value) })}
+                placeholder="DETAIL PEKERJAAN: MIS. PERBAIKAN AC, PENGECATAN ULANG, GANTI LAMPU…"
+                className="mt-1.5 min-h-[70px] text-sm uppercase"
+                required
               />
             </div>
           )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label>Nama Klien (opsional)</Label>
-              <Input
-                data-testid="quick-project-client-input"
-                value={form.client_name}
-                onChange={e => setForm({ ...form, client_name: e.target.value })}
-                placeholder="Nama klien"
-                className="h-11 mt-1.5"
-              />
-            </div>
-            <div>
-              <Label>Nilai Proyek (Rp)</Label>
-              <Input
-                data-testid="quick-project-value-input"
-                type="number"
-                value={form.project_value}
-                onChange={e => setForm({ ...form, project_value: e.target.value })}
-                placeholder="0"
-                className="h-11 mt-1.5 font-mono tabular"
-              />
-              {projectValue > 0 && <div className="text-xs text-slate-500 mt-1 font-mono tabular">{formatIDR(projectValue)}</div>}
-            </div>
-            <div>
-              <Label>Retensi (%)</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  data-testid="quick-project-retpct-input"
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="100"
-                  value={form.retention_percent}
-                  onChange={e => setForm({ ...form, retention_percent: e.target.value })}
-                  className="h-11 pr-8 font-mono tabular"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
-              </div>
-              {retensiValue > 0 && <div className="text-xs text-orange-700 mt-1 font-mono tabular font-semibold">= {formatIDR(retensiValue)}</div>}
-            </div>
-          </div>
 
           <div className="flex justify-end pt-2">
             <Button
