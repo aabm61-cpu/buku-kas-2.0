@@ -145,9 +145,8 @@ class ProjectIn(BaseModel):
 
 class ProjectMeta(BaseModel):
     end_date: Optional[str] = None
-    status_penagihan: Optional[Literal["belum_ditagih", "proses", "terbayar_sebagian", "lunas"]] = None
-    spk_rab: Optional[Literal["belum", "draft", "dikirim", "disetujui"]] = None
-    retensi: Optional[Literal["tidak_ada", "ditahan", "dikembalikan"]] = None
+    spk_rab_type: Optional[Literal["SPK", "RAB"]] = None
+    penagihan_status: Optional[Literal["belum_dibuat", "sudah_dibuat"]] = None
     payment_retensi: Optional[Literal["belum", "sebagian", "lunas"]] = None
     keterangan: Optional[str] = None
 
@@ -297,9 +296,8 @@ async def list_projects(user=Depends(get_current_user)):
         first_dates[row["_id"]] = row["start_date"]
     for p in projects:
         p["start_date"] = first_dates.get(p["id"])
-        p.setdefault("status_penagihan", "belum_ditagih")
-        p.setdefault("spk_rab", "belum")
-        p.setdefault("retensi", "tidak_ada")
+        p.setdefault("spk_rab_type", "SPK")
+        p.setdefault("penagihan_status", "belum_dibuat")
         p.setdefault("payment_retensi", "belum")
         p.setdefault("end_date", None)
         p.setdefault("keterangan", "")
