@@ -1,0 +1,100 @@
+{
+  "summary": "Backend-only public-endpoint regression completed: 30 tests executed, 18 passed and 12 failed. Core owner login/JWT/me, four-role user creation, duplicate rejection, owner-only user management, password/active updates, self-delete protection, project/location CRUD role rules, assignment duplicate/unassigned-location checks, cashbook empty-receipt/RBAC/autofill/isolation, tagihan lifecycle, team-pay computation, owner-only activities, and core dashboard totals passed. Security controls, two location-isolation paths, receipt validation, missing-resource semantics, audit completeness, and tim dashboard project isolation failed.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/login",
+        "issue": "Successful login does not set an access_token HttpOnly/Secure cookie, contrary to the requested auth playbook check.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "OPTIONS /api/auth/login",
+        "issue": "CORS responds Access-Control-Allow-Origin: * and does not allow credentials; configured CORS_ORIGINS is ignored instead of using explicit origins with credentials.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "POST /api/auth/login",
+        "issue": "No brute-force lockout: after five rejected passwords, the correct password immediately returns 200 rather than 423/429.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "GET /api/assignments?location_id={id}",
+        "issue": "A tim user can retrieve assignment data for an unassigned location by supplying location_id (200 with another user's assignment), violating location isolation.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "GET /api/kasbon?location_id={id}",
+        "issue": "A tim user can retrieve kasbon records from an unassigned location by supplying location_id; expected 403, received 200.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "POST /api/cashbook",
+        "issue": "receipt_base64 only receives a truthiness check; malformed value 'not-base64' is accepted and persisted with 200, so a photo receipt is not actually enforced.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "POST /api/assignments",
+        "issue": "Assignment accepts a penagihan user as the target with 200; target user role is not validated as tim.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "DELETE /api/users/{id}",
+        "issue": "Deleting an unknown user returns 200 {ok:true} rather than 404."
+      },
+      {
+        "endpoint": "PATCH /api/projects/{id} and PATCH /api/locations/{id}",
+        "issue": "Updates for unknown IDs return 200 with null instead of 404; matched_count is not checked."
+      },
+      {
+        "endpoint": "DELETE /api/team-payments/{id}",
+        "issue": "Deletion succeeds but does not create the required activity log entry."
+      },
+      {
+        "endpoint": "GET /api/dashboard/stats",
+        "issue": "For tim users, jumlah_proyek counts every project (2) while GET /api/projects correctly exposes only the assigned project (1)."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Enforce tim location membership when an explicit location_id is supplied to assignments and kasbon list endpoints.",
+    "Validate assignment location/user existence and require the target user's role to be tim.",
+    "Decode and validate receipt_base64 as an allowed image/data URL before persisting cashbook entries.",
+    "Add failed-login tracking and lockout after five attempts; set a Secure HttpOnly auth cookie if the auth playbook remains required.",
+    "Read explicit CORS origins from environment and enable credentialed CORS without wildcard origins.",
+    "Check matched_count/deleted_count and return 404 for missing resources; apply consistently to all update/delete endpoints.",
+    "Log team-payment deletion and scope tim dashboard project counts to assigned projects."
+  ],
+  "critical_code_review_comments": [
+    "server.py list_assignments and list_kasbon overwrite the role-scoped location query with the caller-provided location_id; cashbook already demonstrates the correct explicit membership check pattern.",
+    "server.py create_cashbook checks only `if not receipt_base64`; it never base64-decodes, validates MIME type, or confirms image data.",
+    "server.py create_assignment never loads/validates the target user or location, allowing non-tim and nonexistent references.",
+    "Several update/delete handlers ignore MongoDB matched_count/deleted_count, causing false-success responses and null 200 bodies for missing IDs.",
+    "CORS middleware hardcodes wildcard/no credentials and ignores CORS_ORIGINS. Login has no rate-limit/lockout state and returns token JSON only.",
+    "The requested /app/auth_testing.md artifact was absent. Source review confirms bcrypt hashes are $2b$ and startup updates the seeded owner's password when it differs, but the seed-password-change path was not destructively runtime-tested."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/iteration_1.json",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "success_rate": {
+    "backend": "60%",
+    "frontend": "not tested (backend-only request)"
+  },
+  "seed_data_creation": "Created isolated TEST_ users/projects/locations/finance records through public APIs; session cleanup removed test records directly from the configured test MongoDB.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run pytest with `-n 0` because the workflow intentionally shares IDs across ordered end-to-end tests; pytest.ini auto-xdist otherwise separates in-memory STATE across workers. Public URL comes from frontend/.env. Final baseline: 30 tests, 18 pass, 12 fail.",
+  "rca_of_the_issue": "Authorization leaks are query-construction defects: explicit location_id bypasses the computed allowed-location list. Other failures come from missing validation/control branches (base64 decoding, target-role lookup, login lockout/cookie), ignored Mongo write result counts, an omitted delete audit call, and dashboard jumlah_proyek using an unscoped count_documents({})."
+}
