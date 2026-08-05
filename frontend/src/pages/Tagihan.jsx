@@ -62,7 +62,7 @@ export default function Tagihan() {
     let total = 0;
     Object.entries(byProject).forEach(([pid, subtotal]) => {
       const p = projects.find(x => x.id === pid);
-      if (p?.spk_rab_type === "SPK" && p?.payment_retensi !== "lunas") {
+      if (p?.spk_rab_type === "SPK" && !p?.retention_paid) {
         const amt = subtotal * (Number(form.retention_percent || 0) / 100);
         if (amt > 0) {
           lines.push({ projectName: p.name, subtotal, amount: amt });
@@ -174,9 +174,9 @@ export default function Tagihan() {
                           <Checkbox checked={form.selected_projects.includes(p.id)} onCheckedChange={() => toggleProject(p.id)} />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-slate-900">{p.name}</div>
-                            <div className="text-xs text-slate-500">{p.work_type} · {p.spk_rab_type || "SPK"} · Retensi: {p.payment_retensi || "belum"}</div>
+                            <div className="text-xs text-slate-500">{p.work_type} · {p.spk_rab_type || "SPK"} · Retensi: {p.retention_percent || 0}%</div>
                           </div>
-                          {p.spk_rab_type === "SPK" && p.payment_retensi !== "lunas" && (
+                          {p.spk_rab_type === "SPK" && !p.retention_paid && (Number(p.retention_percent) > 0) && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 whitespace-nowrap"><Percent className="h-3 w-3 inline mr-1" />Retensi aktif</span>
                           )}
                         </label>

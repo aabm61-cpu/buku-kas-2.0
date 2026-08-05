@@ -142,12 +142,18 @@ class ProjectIn(BaseModel):
     client_name: Optional[str] = ""
     description: Optional[str] = ""
     status: Optional[Literal["aktif", "selesai", "ditunda"]] = "aktif"
+    project_value: Optional[float] = 0
+    maintenance_notes: Optional[str] = ""
+    retention_percent: Optional[float] = 0
 
 class ProjectMeta(BaseModel):
     end_date: Optional[str] = None
     spk_rab_type: Optional[Literal["SPK", "RAB"]] = None
     penagihan_status: Optional[Literal["belum_dibuat", "sudah_dibuat"]] = None
-    payment_retensi: Optional[Literal["belum", "sebagian", "lunas"]] = None
+    project_value: Optional[float] = None
+    maintenance_notes: Optional[str] = None
+    retention_percent: Optional[float] = None
+    retention_paid: Optional[bool] = None
     keterangan: Optional[str] = None
 
 class LocationIn(BaseModel):
@@ -300,7 +306,10 @@ async def list_projects(user=Depends(get_current_user)):
         p["start_date"] = first_dates.get(p["id"])
         p.setdefault("spk_rab_type", "SPK")
         p.setdefault("penagihan_status", "belum_dibuat")
-        p.setdefault("payment_retensi", "belum")
+        p.setdefault("project_value", 0.0)
+        p.setdefault("maintenance_notes", "")
+        p.setdefault("retention_percent", 0.0)
+        p.setdefault("retention_paid", False)
         p.setdefault("end_date", None)
         p.setdefault("keterangan", "")
     return projects
@@ -559,7 +568,7 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
     pct = max(0.0, min(payload.retention_percent, 100.0))
     for pid, items in by_project.items():
         proj = projects_map.get(pid, {})
-        if proj.get("spk_rab_type", "SPK") == "SPK" and proj.get("payment_retensi", "belum") != "lunas":
+        if proj.get("spk_rab_type", "SPK") == "SPK" and not proj.get("retention_paid", False):
             proj_subtotal = sum(i.amount for i in items)
             r_amount = round(proj_subtotal * (pct / 100.0), 2)
             if r_amount > 0:
@@ -643,11 +652,11 @@ async def update_tagihan(tid: str, payload: TagihanUpdate, user=Depends(require_
         update["status"] = "lunas"
     await db.tagihan.update_one({"id": tid}, {"$set": update})
 
-    # If a retensi invoice is fully paid, mark related projects' payment_retensi=lunas
+    # If a retensi invoice is fully paid, mark related projects' retention_paid=True
     new_t = await db.tagihan.find_one({"id": tid})
     if new_t.get("is_retensi") and new_t.get("paid_amount", 0) >= new_t.get("total", 0):
         for pid in new_t.get("project_ids", []):
-            await db.projects.update_one({"id": pid}, {"$set": {"payment_retensi": "lunas"}})
+            await db.projects.update_one({"id": pid}, {"$set": {"retention_paid": True}})
 
     await log_activity(user, "update", "tagihan", tid, str(update))
     return clean_doc(new_t)
