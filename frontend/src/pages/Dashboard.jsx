@@ -14,6 +14,7 @@ import {
   TrendingUp, TrendingDown, Wallet, MapPin, FolderKanban, Users as UsersIcon,
   FileText, AlertTriangle, Coins, Plus, HardHat, ArrowRight,
 } from "lucide-react";
+import ProjectsTable from "@/components/ProjectsTable";
 
 const WORK_TYPES = ["Renov", "Return to LL Renov", "Addwork", "Maintenance", "Maintenance Return to LL"];
 
@@ -35,11 +36,8 @@ const StatCard = ({ icon: Icon, label, value, color = "blue", testId }) => (
 function PenagihanDashboard({ stats }) {
   const nav = useNavigate();
   const [form, setForm] = useState({ name: "", work_type: "Renov", client_name: "", description: "" });
-  const [projects, setProjects] = useState([]);
   const [saving, setSaving] = useState(false);
-
-  const load = () => api.get("/projects").then(r => setProjects(r.data));
-  useEffect(() => { load(); }, []);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -49,19 +47,10 @@ function PenagihanDashboard({ stats }) {
       await api.post("/projects", form);
       toast.success("Proyek berhasil dibuat");
       setForm({ name: "", work_type: "Renov", client_name: "", description: "" });
-      load();
-      setTimeout(() => nav("/projects"), 600);
+      setRefreshKey(k => k + 1);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Gagal menyimpan");
     } finally { setSaving(false); }
-  };
-
-  const workTypeColor = {
-    "Renov": "bg-blue-100 text-blue-700",
-    "Return to LL Renov": "bg-purple-100 text-purple-700",
-    "Addwork": "bg-orange-100 text-orange-700",
-    "Maintenance": "bg-green-100 text-green-700",
-    "Maintenance Return to LL": "bg-teal-100 text-teal-700",
   };
 
   return (
@@ -78,115 +67,60 @@ function PenagihanDashboard({ stats }) {
         <StatCard testId="stat-jatuh-tempo" icon={AlertTriangle} label="Jatuh Tempo" value={stats.tagihan_jatuh_tempo || 0} color="red" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Quick project input */}
-        <Card className="lg:col-span-3 p-6 bg-white border-slate-200 relative overflow-hidden">
-          <div className="absolute top-0 right-0 h-32 w-32 bg-orange-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-          <div className="relative">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="h-10 w-10 rounded-lg bg-blue-700 text-white flex items-center justify-center"><HardHat className="h-5 w-5" /></div>
-              <div>
-                <div className="text-xs tracking-widest text-slate-500">FORM CEPAT</div>
-                <h2 className="font-display font-bold text-xl text-slate-900">Input Proyek Baru</h2>
-              </div>
+      {/* Quick project input */}
+      <Card className="p-6 bg-white border-slate-200 relative overflow-hidden">
+        <div className="absolute top-0 right-0 h-32 w-32 bg-orange-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="h-10 w-10 rounded-lg bg-blue-700 text-white flex items-center justify-center"><HardHat className="h-5 w-5" /></div>
+            <div>
+              <div className="text-xs tracking-widest text-slate-500">FORM CEPAT</div>
+              <h2 className="font-display font-bold text-xl text-slate-900">Input Proyek Baru</h2>
             </div>
-            <p className="text-sm text-slate-500 mb-5">Isi Nama HUB/SOC dan jenis pekerjaan. Proyek akan otomatis masuk ke menu Proyek.</p>
+          </div>
+          <p className="text-sm text-slate-500 mb-5">Isi Nama HUB/SOC dan jenis pekerjaan. Proyek akan langsung muncul di tabel bawah dan menu Proyek.</p>
 
-            <form onSubmit={submit} className="space-y-4">
-              <div>
-                <Label>Nama HUB/SOC <span className="text-red-500">*</span></Label>
-                <Input
-                  data-testid="quick-project-name-input"
-                  value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })}
-                  placeholder="mis. HUB Jakarta Selatan / SOC Bekasi"
-                  className="h-11 mt-1.5"
-                  required
-                />
-              </div>
-              <div>
-                <Label>Jenis Pekerjaan <span className="text-red-500">*</span></Label>
-                <Select value={form.work_type} onValueChange={v => setForm({ ...form, work_type: v })}>
-                  <SelectTrigger data-testid="quick-project-worktype-select" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-white">
-                    {WORK_TYPES.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Nama Klien (opsional)</Label>
-                  <Input
-                    data-testid="quick-project-client-input"
-                    value={form.client_name}
-                    onChange={e => setForm({ ...form, client_name: e.target.value })}
-                    placeholder="Nama klien"
-                    className="h-11 mt-1.5"
-                  />
-                </div>
-                <div>
-                  <Label>Keterangan (opsional)</Label>
-                  <Input
-                    value={form.description}
-                    onChange={e => setForm({ ...form, description: e.target.value })}
-                    placeholder="Catatan singkat"
-                    className="h-11 mt-1.5"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="submit"
-                  data-testid="quick-project-submit-btn"
-                  disabled={saving}
-                  className="rounded-full bg-blue-700 hover:bg-blue-800 h-11 px-6 font-semibold"
-                >
-                  <Plus className="h-4 w-4 mr-2" /> {saving ? "Menyimpan…" : "Simpan Proyek"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  data-testid="quick-project-view-btn"
-                  onClick={() => nav("/projects")}
-                  className="rounded-full h-11"
-                >
-                  Lihat Semua Proyek <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-            </form>
-          </div>
-        </Card>
+          <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="lg:col-span-2">
+              <Label>Nama HUB/SOC <span className="text-red-500">*</span></Label>
+              <Input
+                data-testid="quick-project-name-input"
+                value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })}
+                placeholder="mis. HUB Jakarta Selatan / SOC Bekasi"
+                className="h-11 mt-1.5"
+                required
+              />
+            </div>
+            <div>
+              <Label>Jenis Pekerjaan <span className="text-red-500">*</span></Label>
+              <Select value={form.work_type} onValueChange={v => setForm({ ...form, work_type: v })}>
+                <SelectTrigger data-testid="quick-project-worktype-select" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="Renov">Renov</SelectItem>
+                  <SelectItem value="Return to LL Renov">Return to LL Renov</SelectItem>
+                  <SelectItem value="Addwork">Addwork</SelectItem>
+                  <SelectItem value="Maintenance">Maintenance</SelectItem>
+                  <SelectItem value="Maintenance Return to LL">Maintenance Return to LL</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Button
+                type="submit"
+                data-testid="quick-project-submit-btn"
+                disabled={saving}
+                className="w-full rounded-full bg-blue-700 hover:bg-blue-800 h-11 px-6 font-semibold"
+              >
+                <Plus className="h-4 w-4 mr-2" /> {saving ? "Menyimpan…" : "Simpan Proyek"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </Card>
 
-        {/* Recent projects */}
-        <Card className="lg:col-span-2 p-6 bg-white border-slate-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-bold text-slate-900">Proyek Terbaru</h3>
-            <span className="text-xs text-slate-500">{projects.length} total</span>
-          </div>
-          <div className="space-y-3">
-            {projects.slice(0, 6).map(p => (
-              <div key={p.id} className="p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-slate-50 cursor-pointer" onClick={() => nav("/projects")} data-testid={`recent-project-${p.id}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-slate-900 truncate">{p.name}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{p.client_name || "—"}</div>
-                  </div>
-                  {p.work_type && (
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${workTypeColor[p.work_type] || "bg-slate-100 text-slate-700"}`}>{p.work_type}</span>
-                  )}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-1">{formatDate(p.created_at)}</div>
-              </div>
-            ))}
-            {projects.length === 0 && (
-              <div className="text-center py-8 text-sm text-slate-500">
-                <FolderKanban className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                Belum ada proyek. Input yang pertama di form sebelah.
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
+      {/* Projects table */}
+      <ProjectsTable key={refreshKey} />
     </div>
   );
 }

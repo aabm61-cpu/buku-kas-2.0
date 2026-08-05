@@ -143,6 +143,14 @@ class ProjectIn(BaseModel):
     description: Optional[str] = ""
     status: Optional[Literal["aktif", "selesai", "ditunda"]] = "aktif"
 
+class ProjectMeta(BaseModel):
+    end_date: Optional[str] = None
+    status_penagihan: Optional[Literal["belum_ditagih", "proses", "terbayar_sebagian", "lunas"]] = None
+    spk_rab: Optional[Literal["belum", "draft", "dikirim", "disetujui"]] = None
+    retensi: Optional[Literal["tidak_ada", "ditahan", "dikembalikan"]] = None
+    payment_retensi: Optional[Literal["belum", "sebagian", "lunas"]] = None
+    keterangan: Optional[str] = None
+
 class LocationIn(BaseModel):
     project_id: str
     name: str
@@ -281,6 +289,20 @@ async def list_projects(user=Depends(get_current_user)):
         locs = [clean_doc(l) async for l in db.locations.find({"id": {"$in": loc_ids}})]
         pids = {l["project_id"] for l in locs}
         projects = [p for p in projects if p["id"] in pids]
+
+    # Compute start_date from first cashbook entry per project
+    pipeline = [{"$group": {"_id": "$project_id", "start_date": {"$min": "$date"}}}]
+    first_dates = {}
+    async for row in db.cashbook.aggregate(pipeline):
+        first_dates[row["_id"]] = row["start_date"]
+    for p in projects:
+        p["start_date"] = first_dates.get(p["id"])
+        p.setdefault("status_penagihan", "belum_ditagih")
+        p.setdefault("spk_rab", "belum")
+        p.setdefault("retensi", "tidak_ada")
+        p.setdefault("payment_retensi", "belum")
+        p.setdefault("end_date", None)
+        p.setdefault("keterangan", "")
     return projects
 
 @api.post("/projects")
@@ -296,6 +318,18 @@ async def update_project(pid: str, payload: ProjectIn, user=Depends(require_role
     if res.matched_count == 0:
         raise HTTPException(404, "Proyek tidak ditemukan")
     await log_activity(user, "update", "project", pid)
+    p = await db.projects.find_one({"id": pid})
+    return clean_doc(p)
+
+@api.patch("/projects/{pid}/meta")
+async def update_project_meta(pid: str, payload: ProjectMeta, user=Depends(require_role("owner", "penagihan"))):
+    update = payload.model_dump(exclude_none=True)
+    if not update:
+        raise HTTPException(400, "Tidak ada perubahan")
+    res = await db.projects.update_one({"id": pid}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Proyek tidak ditemukan")
+    await log_activity(user, "update", "project", pid, f"Meta: {list(update.keys())}")
     p = await db.projects.find_one({"id": pid})
     return clean_doc(p)
 
