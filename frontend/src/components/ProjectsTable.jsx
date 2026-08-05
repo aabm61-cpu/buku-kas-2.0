@@ -4,9 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { formatDate, formatIDR } from "@/lib/format";
-import { Briefcase, CheckCircle2 } from "lucide-react";
+import { formatIDR } from "@/lib/format";
+import { Briefcase, CheckCircle2, Lock, Unlock } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const WORK_TYPE_COLOR = {
   "Renov": "bg-blue-100 text-blue-700",
@@ -26,6 +28,12 @@ const PENAGIHAN_STATUS = [
   { v: "sudah_dibuat", label: "Sudah Dibuat", cls: "bg-green-100 text-green-700" },
 ];
 
+const WORK_STATUS = {
+  belum_mulai: { label: "Belum Mulai", cls: "bg-red-100 text-red-700 border border-red-200" },
+  sedang_berlangsung: { label: "Sedang Berlangsung", cls: "bg-yellow-100 text-yellow-800 border border-yellow-200" },
+  selesai: { label: "Selesai", cls: "bg-green-100 text-green-700 border border-green-200" },
+};
+
 function StatusDropdown({ value, options, onChange, testId }) {
   const opt = options.find(o => o.v === value) || options[0];
   return (
@@ -41,8 +49,10 @@ function StatusDropdown({ value, options, onChange, testId }) {
 }
 
 export default function ProjectsTable() {
+  const { user } = useAuth();
+  const canClose = ["owner", "bendahara"].includes(user.role);
   const [items, setItems] = useState([]);
-  const [drafts, setDrafts] = useState({}); // { projectId: { field: value } }
+  const [drafts, setDrafts] = useState({});
 
   const load = () => api.get("/projects").then(r => setItems(r.data));
   useEffect(() => { load(); }, []);
@@ -52,6 +62,7 @@ export default function ProjectsTable() {
     try {
       await api.patch(`/projects/${id}/meta`, { [field]: value });
       toast.success("Tersimpan", { duration: 1000 });
+      if (field === "cashbook_closed") load(); // refresh work_status
     } catch (e) {
       toast.error("Gagal menyimpan");
       load();
@@ -67,7 +78,6 @@ export default function ProjectsTable() {
     if (Object.keys(next).length) out[id] = next; else delete out[id];
     return out;
   });
-
   const commitNumber = (id, field, currentValue) => {
     const draft = drafts[id]?.[field];
     if (draft === undefined) return;
@@ -77,13 +87,21 @@ export default function ProjectsTable() {
     clearDraft(id, field);
   };
 
+  const toggleClosed = (p) => {
+    if (p.cashbook_count === 0) {
+      toast.error("Tim belum mengisi buku kas, tidak bisa ditutup");
+      return;
+    }
+    patch(p.id, "cashbook_closed", !p.cashbook_closed);
+  };
+
   return (
     <Card className="bg-white border-slate-200 overflow-hidden">
       <div className="p-5 border-b border-slate-100 flex items-center justify-between">
         <div>
           <h3 className="font-display font-bold text-slate-900">Daftar Proyek</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Isi Nilai Proyek & Retensi (%) — Nilai Retensi terhitung otomatis dari kedua nilai tersebut
+            Status Pekerjaan otomatis dari aktivitas tim di buku kas · Owner/Bendahara dapat menutup buku kas
           </p>
         </div>
         <span className="text-xs text-slate-500">{items.length} proyek</span>
@@ -94,11 +112,10 @@ export default function ProjectsTable() {
             <TableRow className="bg-slate-50">
               <TableHead className="whitespace-nowrap">Nama Lokasi</TableHead>
               <TableHead className="whitespace-nowrap">Jenis Pekerjaan</TableHead>
-              <TableHead className="whitespace-nowrap text-right">Nilai Proyek</TableHead>
-              <TableHead className="whitespace-nowrap">Start Proyek</TableHead>
-              <TableHead className="whitespace-nowrap">Tanggal Selesai</TableHead>
+              <TableHead className="whitespace-nowrap">Status Pekerjaan</TableHead>
               <TableHead className="whitespace-nowrap">SPK / RAB</TableHead>
               <TableHead className="whitespace-nowrap">Penagihan</TableHead>
+              <TableHead className="whitespace-nowrap text-right">Nilai Proyek</TableHead>
               <TableHead className="whitespace-nowrap text-right">Retensi (%)</TableHead>
               <TableHead className="whitespace-nowrap text-right">Nilai Retensi</TableHead>
               <TableHead className="whitespace-nowrap min-w-[180px]">Keterangan</TableHead>
@@ -109,6 +126,7 @@ export default function ProjectsTable() {
               const projValue = Number(p.project_value || 0);
               const retPct = Number(p.retention_percent || 0);
               const retValue = projValue * retPct / 100;
+              const ws = WORK_STATUS[p.work_status] || WORK_STATUS.belum_mulai;
               return (
                 <TableRow key={p.id} data-testid={`proj-row-${p.id}`}>
                   <TableCell className="font-semibold text-slate-900 whitespace-nowrap">
@@ -121,6 +139,36 @@ export default function ProjectsTable() {
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${WORK_TYPE_COLOR[p.work_type] || "bg-slate-100 text-slate-700"}`}>
                       <Briefcase className="h-3 w-3 inline mr-1" />{p.work_type || "-"}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${ws.cls}`}
+                        data-testid={`proj-work-status-${p.id}`}
+                        title={p.cashbook_count > 0 ? `${p.cashbook_count} pencatatan buku kas` : "Belum ada pencatatan"}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${p.work_status === "belum_mulai" ? "bg-red-500" : p.work_status === "sedang_berlangsung" ? "bg-yellow-500 animate-pulse" : "bg-green-500"}`} />
+                        {ws.label}
+                      </span>
+                      {canClose && p.cashbook_count > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => toggleClosed(p)}
+                          data-testid={`proj-close-toggle-${p.id}`}
+                          title={p.cashbook_closed ? "Buka kembali buku kas" : "Tutup buku kas"}
+                        >
+                          {p.cashbook_closed ? <><Unlock className="h-3 w-3 mr-1" /> Buka</> : <><Lock className="h-3 w-3 mr-1" /> Tutup</>}
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <StatusDropdown testId={`proj-spk-rab-type-${p.id}`} value={p.spk_rab_type} options={SPK_RAB_TYPE} onChange={(v) => patch(p.id, "spk_rab_type", v)} />
+                  </TableCell>
+                  <TableCell>
+                    <StatusDropdown testId={`proj-penagihan-status-${p.id}`} value={p.penagihan_status} options={PENAGIHAN_STATUS} onChange={(v) => patch(p.id, "penagihan_status", v)} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="relative">
@@ -137,24 +185,6 @@ export default function ProjectsTable() {
                     {projValue > 0 && drafts[p.id]?.project_value === undefined && (
                       <div className="text-[10px] text-slate-500 mt-0.5 font-mono tabular">{formatIDR(projValue)}</div>
                     )}
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-600 whitespace-nowrap">
-                    {p.start_date ? formatDate(p.start_date) : <span className="text-slate-400 italic">Belum ada</span>}
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      data-testid={`proj-enddate-${p.id}`}
-                      type="date"
-                      value={p.end_date ? p.end_date.slice(0, 10) : ""}
-                      onChange={e => patch(p.id, "end_date", e.target.value)}
-                      className="h-8 w-[145px] text-xs"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <StatusDropdown testId={`proj-spk-rab-type-${p.id}`} value={p.spk_rab_type} options={SPK_RAB_TYPE} onChange={(v) => patch(p.id, "spk_rab_type", v)} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusDropdown testId={`proj-penagihan-status-${p.id}`} value={p.penagihan_status} options={PENAGIHAN_STATUS} onChange={(v) => patch(p.id, "penagihan_status", v)} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="relative">
@@ -198,7 +228,7 @@ export default function ProjectsTable() {
               );
             })}
             {items.length === 0 && (
-              <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-500">Belum ada proyek. Input yang pertama di form Dashboard.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-500">Belum ada proyek. Input yang pertama di form Dashboard.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

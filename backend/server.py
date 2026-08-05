@@ -154,6 +154,7 @@ class ProjectMeta(BaseModel):
     maintenance_notes: Optional[str] = None
     retention_percent: Optional[float] = None
     retention_paid: Optional[bool] = None
+    cashbook_closed: Optional[bool] = None
     keterangan: Optional[str] = None
 
 class LocationIn(BaseModel):
@@ -297,21 +298,31 @@ async def list_projects(user=Depends(get_current_user)):
         pids = {l["project_id"] for l in locs}
         projects = [p for p in projects if p["id"] in pids]
 
-    # Compute start_date from first cashbook entry per project
-    pipeline = [{"$group": {"_id": "$project_id", "start_date": {"$min": "$date"}}}]
+    # Compute start_date & count from cashbook per project
+    pipeline = [{"$group": {"_id": "$project_id", "start_date": {"$min": "$date"}, "cnt": {"$sum": 1}}}]
     first_dates = {}
+    counts = {}
     async for row in db.cashbook.aggregate(pipeline):
         first_dates[row["_id"]] = row["start_date"]
+        counts[row["_id"]] = row["cnt"]
     for p in projects:
         p["start_date"] = first_dates.get(p["id"])
+        p["cashbook_count"] = counts.get(p["id"], 0)
         p.setdefault("spk_rab_type", "SPK")
         p.setdefault("penagihan_status", "belum_dibuat")
         p.setdefault("project_value", 0.0)
         p.setdefault("maintenance_notes", "")
         p.setdefault("retention_percent", 0.0)
         p.setdefault("retention_paid", False)
+        p.setdefault("cashbook_closed", False)
         p.setdefault("end_date", None)
         p.setdefault("keterangan", "")
+        if p.get("cashbook_closed"):
+            p["work_status"] = "selesai"
+        elif p["cashbook_count"] > 0:
+            p["work_status"] = "sedang_berlangsung"
+        else:
+            p["work_status"] = "belum_mulai"
     return projects
 
 @api.post("/projects")
