@@ -155,6 +155,7 @@ class ProjectMeta(BaseModel):
     retention_percent: Optional[float] = None
     retention_paid: Optional[bool] = None
     cashbook_closed: Optional[bool] = None
+    is_completed: Optional[bool] = None
     keterangan: Optional[str] = None
 
 class LocationIn(BaseModel):
@@ -315,6 +316,7 @@ async def list_projects(user=Depends(get_current_user)):
         p.setdefault("retention_percent", 0.0)
         p.setdefault("retention_paid", False)
         p.setdefault("cashbook_closed", False)
+        p.setdefault("is_completed", False)
         p.setdefault("end_date", None)
         p.setdefault("keterangan", "")
         if p.get("cashbook_closed"):

@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { formatIDR } from "@/lib/format";
-import { Briefcase, CheckCircle2, Lock, Unlock } from "lucide-react";
+import { Briefcase, CheckCircle2, Eye, Archive, RotateCcw, Lock, Unlock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const WORK_TYPE_COLOR = {
@@ -18,221 +22,279 @@ const WORK_TYPE_COLOR = {
   "Maintenance Return to LL": "bg-teal-100 text-teal-700",
 };
 
-const SPK_RAB_TYPE = [
-  { v: "SPK", label: "SPK", cls: "bg-indigo-100 text-indigo-700" },
-  { v: "RAB", label: "RAB", cls: "bg-amber-100 text-amber-800" },
+const SPK_RAB_OPTS = [
+  { v: "SPK", label: "SPK" },
+  { v: "RAB", label: "RAB" },
 ];
 
-const PENAGIHAN_STATUS = [
-  { v: "belum_dibuat", label: "Belum Dibuat", cls: "bg-slate-100 text-slate-700" },
-  { v: "sudah_dibuat", label: "Sudah Dibuat", cls: "bg-green-100 text-green-700" },
+const PENAGIHAN_OPTS = [
+  { v: "belum_dibuat", label: "Belum Dibuat" },
+  { v: "sudah_dibuat", label: "Sudah Dibuat" },
 ];
 
 const WORK_STATUS = {
-  belum_mulai: { label: "Belum Mulai", cls: "bg-red-100 text-red-700 border border-red-200" },
-  sedang_berlangsung: { label: "Sedang Berlangsung", cls: "bg-yellow-100 text-yellow-800 border border-yellow-200" },
-  selesai: { label: "Selesai", cls: "bg-green-100 text-green-700 border border-green-200" },
+  belum_mulai: { label: "Belum Mulai", cls: "bg-red-100 text-red-700 border border-red-200", dot: "bg-red-500" },
+  sedang_berlangsung: { label: "Sedang Berlangsung", cls: "bg-yellow-100 text-yellow-800 border border-yellow-200", dot: "bg-yellow-500 animate-pulse" },
+  selesai: { label: "Selesai", cls: "bg-green-100 text-green-700 border border-green-200", dot: "bg-green-500" },
 };
 
-function StatusDropdown({ value, options, onChange, testId }) {
-  const opt = options.find(o => o.v === value) || options[0];
+function DetailDialog({ project, open, onClose, onSaved }) {
+  const [form, setForm] = useState(project || {});
+  useEffect(() => { setForm(project || {}); }, [project]);
+  if (!project) return null;
+
+  const projValue = Number(form.project_value || 0);
+  const retPct = Number(form.retention_percent || 0);
+  const retValue = projValue * retPct / 100;
+
+  const save = async () => {
+    try {
+      await api.patch(`/projects/${project.id}/meta`, {
+        spk_rab_type: form.spk_rab_type,
+        penagihan_status: form.penagihan_status,
+        project_value: Number(form.project_value) || 0,
+        retention_percent: Number(form.retention_percent) || 0,
+        keterangan: form.keterangan || "",
+        end_date: form.end_date || null,
+      });
+      toast.success("Perubahan tersimpan");
+      onSaved?.();
+      onClose();
+    } catch (e) {
+      toast.error("Gagal menyimpan");
+    }
+  };
+
+  const ws = WORK_STATUS[project.work_status] || WORK_STATUS.belum_mulai;
+
   return (
-    <Select value={value || options[0].v} onValueChange={onChange}>
-      <SelectTrigger data-testid={testId} className={`h-8 px-2 py-0 rounded-full border-0 text-xs font-semibold ${opt.cls} focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 w-full min-w-[130px]`}>
-        <SelectValue>{opt.label}</SelectValue>
-      </SelectTrigger>
-      <SelectContent className="bg-white">
-        {options.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}
-      </SelectContent>
-    </Select>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="bg-white max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-3">
+            <span>{project.name}</span>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${WORK_TYPE_COLOR[project.work_type] || "bg-slate-100 text-slate-700"}`}>{project.work_type}</span>
+            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${ws.cls}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${ws.dot}`} />{ws.label}
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          {project.work_type === "Maintenance" && project.maintenance_notes && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="text-xs font-semibold text-green-800 mb-1">Keterangan Pekerjaan Maintenance</div>
+              <div className="text-sm text-slate-700">{project.maintenance_notes}</div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div><div className="text-xs text-slate-500 uppercase tracking-wider">Klien</div><div className="font-semibold text-slate-900">{project.client_name || "-"}</div></div>
+            <div><div className="text-xs text-slate-500 uppercase tracking-wider">Tanggal Dibuat</div><div className="font-semibold text-slate-900">{project.created_at ? new Date(project.created_at).toLocaleDateString("id-ID") : "-"}</div></div>
+            <div><div className="text-xs text-slate-500 uppercase tracking-wider">Jumlah Pencatatan Buku Kas</div><div className="font-semibold text-slate-900">{project.cashbook_count || 0} entri</div></div>
+            <div><div className="text-xs text-slate-500 uppercase tracking-wider">Buku Kas Ditutup</div><div className={`font-semibold ${project.cashbook_closed ? "text-green-700" : "text-slate-500"}`}>{project.cashbook_closed ? "Ya" : "Belum"}</div></div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>SPK / RAB</Label>
+              <Select value={form.spk_rab_type || "SPK"} onValueChange={v => setForm({ ...form, spk_rab_type: v })}>
+                <SelectTrigger data-testid="detail-spk-rab" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-white">{SPK_RAB_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Penagihan</Label>
+              <Select value={form.penagihan_status || "belum_dibuat"} onValueChange={v => setForm({ ...form, penagihan_status: v })}>
+                <SelectTrigger data-testid="detail-penagihan" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-white">{PENAGIHAN_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label>Nilai Proyek (Rp)</Label>
+              <Input data-testid="detail-value" type="number" value={form.project_value ?? 0} onChange={e => setForm({ ...form, project_value: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
+              {projValue > 0 && <div className="text-xs text-slate-500 mt-1 font-mono">{formatIDR(projValue)}</div>}
+            </div>
+            <div>
+              <Label>Retensi (%)</Label>
+              <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
+            </div>
+            <div>
+              <Label>Nilai Retensi</Label>
+              <div className="h-11 mt-1.5 flex items-center justify-between px-3 rounded-md bg-slate-50 border border-slate-200">
+                <span className="font-mono tabular font-semibold text-orange-700">{formatIDR(retValue)}</span>
+                {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" title="Retensi sudah dibayar" />}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label>Keterangan</Label>
+            <Textarea data-testid="detail-keterangan" value={form.keterangan || ""} onChange={e => setForm({ ...form, keterangan: e.target.value })} className="mt-1.5 min-h-[70px]" placeholder="Catatan tambahan…" />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <Button variant="outline" onClick={onClose}>Tutup</Button>
+          <Button data-testid="detail-save-btn" onClick={save} className="bg-blue-700 hover:bg-blue-800">Simpan Perubahan</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ProjectRow({ p, showComplete, onDetail, onComplete, onReopen }) {
+  const ws = WORK_STATUS[p.work_status] || WORK_STATUS.belum_mulai;
+  return (
+    <TableRow data-testid={`proj-row-${p.id}`}>
+      <TableCell className="font-semibold text-slate-900">
+        {p.name}
+        {p.work_type === "Maintenance" && p.maintenance_notes && (
+          <div className="text-[10px] text-slate-500 font-normal italic mt-0.5 max-w-[280px] truncate" title={p.maintenance_notes}>{p.maintenance_notes}</div>
+        )}
+      </TableCell>
+      <TableCell>
+        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${WORK_TYPE_COLOR[p.work_type] || "bg-slate-100 text-slate-700"}`}>
+          <Briefcase className="h-3 w-3 inline mr-1" />{p.work_type || "-"}
+        </span>
+      </TableCell>
+      <TableCell>
+        <span
+          className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${ws.cls}`}
+          data-testid={`proj-work-status-${p.id}`}
+          title={`${p.cashbook_count || 0} pencatatan buku kas`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${ws.dot}`} />
+          {ws.label}
+        </span>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 rounded-full"
+            onClick={() => onDetail(p)}
+            data-testid={`proj-detail-btn-${p.id}`}
+          >
+            <Eye className="h-3.5 w-3.5 mr-1.5" /> Detail
+          </Button>
+          {showComplete ? (
+            <Button
+              size="sm"
+              className="h-8 rounded-full bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => onComplete(p)}
+              data-testid={`proj-complete-btn-${p.id}`}
+            >
+              <Archive className="h-3.5 w-3.5 mr-1.5" /> Selesai
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-full"
+              onClick={() => onReopen(p)}
+              data-testid={`proj-reopen-btn-${p.id}`}
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Kembalikan
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
 export default function ProjectsTable() {
   const { user } = useAuth();
-  const canClose = ["owner", "bendahara"].includes(user.role);
   const [items, setItems] = useState([]);
-  const [drafts, setDrafts] = useState({});
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailProject, setDetailProject] = useState(null);
 
   const load = () => api.get("/projects").then(r => setItems(r.data));
   useEffect(() => { load(); }, []);
 
-  const patch = async (id, field, value) => {
-    setItems(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+  const berjalan = useMemo(() => items.filter(p => !p.is_completed), [items]);
+  const selesai = useMemo(() => items.filter(p => p.is_completed), [items]);
+
+  const openDetail = (p) => { setDetailProject(p); setDetailOpen(true); };
+
+  const markComplete = async (p) => {
     try {
-      await api.patch(`/projects/${id}/meta`, { [field]: value });
-      toast.success("Tersimpan", { duration: 1000 });
-      if (field === "cashbook_closed") load(); // refresh work_status
-    } catch (e) {
-      toast.error("Gagal menyimpan");
+      await api.patch(`/projects/${p.id}/meta`, { is_completed: true });
+      toast.success(`Proyek "${p.name}" dipindahkan ke Proyek Selesai`);
       load();
-    }
+    } catch { toast.error("Gagal memindahkan"); }
   };
 
-  const getDraft = (id, field, fallback) => drafts[id]?.[field] !== undefined ? drafts[id][field] : fallback;
-  const setDraft = (id, field, value) => setDrafts(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [field]: value } }));
-  const clearDraft = (id, field) => setDrafts(prev => {
-    const next = { ...(prev[id] || {}) };
-    delete next[field];
-    const out = { ...prev };
-    if (Object.keys(next).length) out[id] = next; else delete out[id];
-    return out;
-  });
-  const commitNumber = (id, field, currentValue) => {
-    const draft = drafts[id]?.[field];
-    if (draft === undefined) return;
-    const num = Number(draft);
-    if (isNaN(num)) { clearDraft(id, field); return; }
-    if (num !== currentValue) patch(id, field, num);
-    clearDraft(id, field);
+  const reopen = async (p) => {
+    try {
+      await api.patch(`/projects/${p.id}/meta`, { is_completed: false });
+      toast.success(`Proyek "${p.name}" dikembalikan ke Proyek Berjalan`);
+      load();
+    } catch { toast.error("Gagal mengembalikan"); }
   };
 
-  const toggleClosed = (p) => {
-    if (p.cashbook_count === 0) {
-      toast.error("Tim belum mengisi buku kas, tidak bisa ditutup");
-      return;
-    }
-    patch(p.id, "cashbook_closed", !p.cashbook_closed);
-  };
-
-  return (
+  const renderTable = (list, showComplete) => (
     <Card className="bg-white border-slate-200 overflow-hidden">
-      <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-        <div>
-          <h3 className="font-display font-bold text-slate-900">Daftar Proyek</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Status Pekerjaan otomatis dari aktivitas tim di buku kas · Owner/Bendahara dapat menutup buku kas
-          </p>
-        </div>
-        <span className="text-xs text-slate-500">{items.length} proyek</span>
-      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">
-              <TableHead className="whitespace-nowrap">Nama Lokasi</TableHead>
-              <TableHead className="whitespace-nowrap">Jenis Pekerjaan</TableHead>
-              <TableHead className="whitespace-nowrap">Status Pekerjaan</TableHead>
-              <TableHead className="whitespace-nowrap">SPK / RAB</TableHead>
-              <TableHead className="whitespace-nowrap">Penagihan</TableHead>
-              <TableHead className="whitespace-nowrap text-right">Nilai Proyek</TableHead>
-              <TableHead className="whitespace-nowrap text-right">Retensi (%)</TableHead>
-              <TableHead className="whitespace-nowrap text-right">Nilai Retensi</TableHead>
-              <TableHead className="whitespace-nowrap min-w-[180px]">Keterangan</TableHead>
+              <TableHead>Nama Lokasi</TableHead>
+              <TableHead>Jenis Pekerjaan</TableHead>
+              <TableHead>Status Pekerjaan</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map(p => {
-              const projValue = Number(p.project_value || 0);
-              const retPct = Number(p.retention_percent || 0);
-              const retValue = projValue * retPct / 100;
-              const ws = WORK_STATUS[p.work_status] || WORK_STATUS.belum_mulai;
-              return (
-                <TableRow key={p.id} data-testid={`proj-row-${p.id}`}>
-                  <TableCell className="font-semibold text-slate-900 whitespace-nowrap">
-                    {p.name}
-                    {p.work_type === "Maintenance" && p.maintenance_notes && (
-                      <div className="text-[10px] text-slate-500 font-normal italic mt-0.5 max-w-[200px] truncate" title={p.maintenance_notes}>{p.maintenance_notes}</div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${WORK_TYPE_COLOR[p.work_type] || "bg-slate-100 text-slate-700"}`}>
-                      <Briefcase className="h-3 w-3 inline mr-1" />{p.work_type || "-"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${ws.cls}`}
-                        data-testid={`proj-work-status-${p.id}`}
-                        title={p.cashbook_count > 0 ? `${p.cashbook_count} pencatatan buku kas` : "Belum ada pencatatan"}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${p.work_status === "belum_mulai" ? "bg-red-500" : p.work_status === "sedang_berlangsung" ? "bg-yellow-500 animate-pulse" : "bg-green-500"}`} />
-                        {ws.label}
-                      </span>
-                      {canClose && p.cashbook_count > 0 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => toggleClosed(p)}
-                          data-testid={`proj-close-toggle-${p.id}`}
-                          title={p.cashbook_closed ? "Buka kembali buku kas" : "Tutup buku kas"}
-                        >
-                          {p.cashbook_closed ? <><Unlock className="h-3 w-3 mr-1" /> Buka</> : <><Lock className="h-3 w-3 mr-1" /> Tutup</>}
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <StatusDropdown testId={`proj-spk-rab-type-${p.id}`} value={p.spk_rab_type} options={SPK_RAB_TYPE} onChange={(v) => patch(p.id, "spk_rab_type", v)} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusDropdown testId={`proj-penagihan-status-${p.id}`} value={p.penagihan_status} options={PENAGIHAN_STATUS} onChange={(v) => patch(p.id, "penagihan_status", v)} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">Rp</span>
-                      <Input
-                        data-testid={`proj-value-${p.id}`}
-                        type="number"
-                        value={getDraft(p.id, "project_value", projValue)}
-                        onChange={e => setDraft(p.id, "project_value", e.target.value)}
-                        onBlur={() => commitNumber(p.id, "project_value", projValue)}
-                        className="h-8 w-[150px] text-xs text-right pl-7 font-mono tabular"
-                      />
-                    </div>
-                    {projValue > 0 && drafts[p.id]?.project_value === undefined && (
-                      <div className="text-[10px] text-slate-500 mt-0.5 font-mono tabular">{formatIDR(projValue)}</div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="relative">
-                      <Input
-                        data-testid={`proj-retpct-${p.id}`}
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="100"
-                        value={getDraft(p.id, "retention_percent", retPct)}
-                        onChange={e => setDraft(p.id, "retention_percent", e.target.value)}
-                        onBlur={() => commitNumber(p.id, "retention_percent", retPct)}
-                        className="h-8 w-[80px] text-xs text-right pr-6 font-mono tabular"
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">%</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      {p.retention_paid && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" title="Retensi sudah dibayar" />}
-                      <span className={`font-mono tabular text-sm font-semibold ${retValue > 0 ? (p.retention_paid ? "text-slate-400 line-through" : "text-orange-700") : "text-slate-400"}`}>
-                        {formatIDR(retValue)}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      data-testid={`proj-ket-${p.id}`}
-                      value={getDraft(p.id, "keterangan", p.keterangan || "")}
-                      onChange={e => setDraft(p.id, "keterangan", e.target.value)}
-                      onBlur={() => {
-                        const draft = drafts[p.id]?.keterangan;
-                        if (draft !== undefined && draft !== (p.keterangan || "")) patch(p.id, "keterangan", draft);
-                        clearDraft(p.id, "keterangan");
-                      }}
-                      placeholder="Catatan…"
-                      className="h-8 text-xs min-w-[160px]"
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {items.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-500">Belum ada proyek. Input yang pertama di form Dashboard.</TableCell></TableRow>
+            {list.map(p => (
+              <ProjectRow
+                key={p.id}
+                p={p}
+                showComplete={showComplete}
+                onDetail={openDetail}
+                onComplete={markComplete}
+                onReopen={reopen}
+              />
+            ))}
+            {list.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-8 text-slate-500">
+                  {showComplete ? "Belum ada proyek berjalan." : "Belum ada proyek selesai."}
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
     </Card>
+  );
+
+  return (
+    <div className="space-y-4">
+      <Tabs defaultValue="berjalan">
+        <TabsList data-testid="projects-tabs" className="bg-slate-100">
+          <TabsTrigger value="berjalan" data-testid="tab-berjalan" className="data-[state=active]:bg-white">
+            Proyek Berjalan <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{berjalan.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="selesai" data-testid="tab-selesai" className="data-[state=active]:bg-white">
+            Proyek Selesai <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">{selesai.length}</span>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="berjalan" className="mt-4">{renderTable(berjalan, true)}</TabsContent>
+        <TabsContent value="selesai" className="mt-4">{renderTable(selesai, false)}</TabsContent>
+      </Tabs>
+
+      <DetailDialog
+        project={detailProject}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        onSaved={load}
+      />
+    </div>
   );
 }
