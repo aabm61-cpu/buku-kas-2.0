@@ -180,8 +180,8 @@ class CashBookIn(BaseModel):
     type: Literal["pemasukan", "pengeluaran"]
     category: str
     amount: float
-    description: str
-    receipt_base64: str  # mandatory
+    description: str = ""
+    receipt_base64: str = ""  # required only for pengeluaran
     date: Optional[str] = None
 
 class KasbonIn(BaseModel):
@@ -579,8 +579,8 @@ async def list_cashbook(location_id: Optional[str] = None, user=Depends(get_curr
 
 @api.post("/cashbook")
 async def create_cashbook(payload: CashBookIn, user=Depends(require_role("tim", "bendahara", "owner"))):
-    if not payload.receipt_base64:
-        raise HTTPException(400, "Foto nota wajib diupload")
+    if not payload.receipt_base64 and payload.type == "pengeluaran":
+        raise HTTPException(400, "Foto nota wajib untuk pengeluaran")
     # verify access
     if user["role"] == "tim":
         assignment = await db.location_assignments.find_one({"location_id": payload.location_id, "user_id": user["id"]})

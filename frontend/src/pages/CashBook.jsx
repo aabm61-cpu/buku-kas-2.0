@@ -15,12 +15,9 @@ import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import ReceiptUpload from "@/components/ReceiptUpload";
 
-const emptyEntry = () => ({ type: "pengeluaran", category: "", amount: "", description: "", receipt_base64: "", date: new Date().toISOString().slice(0, 10) });
+const emptyEntry = () => ({ type: "pengeluaran", category: "", amount: "", description: "", receipt_base64: "" });
 
-const categories = {
-  pemasukan: ["Termin Klien", "Kas Awal", "Lain-lain"],
-  pengeluaran: ["Material", "Upah Harian", "Transport", "Konsumsi", "Sewa Alat", "Lain-lain"],
-};
+const PENGELUARAN_CATS = ["Konsumsi", "Material", "Kasbon"];
 
 export default function CashBook() {
   const { user } = useAuth();
@@ -103,10 +100,21 @@ export default function CashBook() {
 
   const submit = async () => {
     if (!selectedLoc) { toast.error("Pilih buku kas terlebih dulu"); return; }
-    if (!form.receipt_base64) { toast.error("Foto nota wajib diupload"); return; }
     if (!form.amount || Number(form.amount) <= 0) { toast.error("Nominal tidak valid"); return; }
+    if (form.type === "pengeluaran") {
+      if (!form.category) { toast.error("Kategori wajib dipilih"); return; }
+      if (!form.receipt_base64) { toast.error("Foto nota wajib diupload untuk pengeluaran"); return; }
+    }
     try {
-      await api.post("/cashbook", { ...form, location_id: selectedLoc, amount: Number(form.amount), date: new Date(form.date).toISOString() });
+      await api.post("/cashbook", {
+        location_id: selectedLoc,
+        type: form.type,
+        category: form.type === "pemasukan" ? "Pemasukan" : form.category,
+        amount: Number(form.amount),
+        description: form.description || "",
+        receipt_base64: form.type === "pengeluaran" ? form.receipt_base64 : "",
+        date: new Date().toISOString(),
+      });
       toast.success("Pencatatan berhasil");
       setOpen(false); setForm(emptyEntry()); load();
     } catch (e) { toast.error(e.response?.data?.detail || "Gagal"); }
@@ -145,7 +153,7 @@ export default function CashBook() {
           <h1 className="font-display font-extrabold text-3xl text-slate-900">Buku Kas</h1>
           <p className="text-slate-500 mt-1">Pilih buku kas sesuai lokasi proyek Anda. Setiap buku berdiri sendiri — data tidak tercampur.</p>
         </div>
-        {(user.role === "tim" || user.role === "owner") && (
+        {(user.role === "tim" || user.role === "owner") && !selectedLoc && (
           <Button onClick={openCreateDialog} data-testid="bukukas-create-btn" className="rounded-full bg-orange-500 hover:bg-orange-600">
             <BookPlus className="h-4 w-4 mr-2" /> Buat Buku Kas
           </Button>
@@ -217,7 +225,6 @@ export default function CashBook() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={exportCSV} className="rounded-full" data-testid="cashbook-export-btn"><Download className="h-4 w-4 mr-2" /> Export</Button>
               {canClose && (
                 <Button onClick={closeBukuKas} data-testid="bukukas-close-btn" className="rounded-full bg-green-600 hover:bg-green-700 text-white">
                   <CheckCheck className="h-4 w-4 mr-2" /> Selesai
@@ -229,36 +236,50 @@ export default function CashBook() {
                   <DialogContent className="bg-white max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader><DialogTitle>Catatan Baru — <span className="text-blue-700">{activeLoc.name}</span></DialogTitle></DialogHeader>
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>Tipe</Label>
-                          <Select value={form.type} onValueChange={v => setForm({ ...form, type: v, category: "" })}>
-                            <SelectTrigger data-testid="cashbook-type-select"><SelectValue /></SelectTrigger>
-                            <SelectContent className="bg-white">
-                              <SelectItem value="pemasukan">Pemasukan</SelectItem>
-                              <SelectItem value="pengeluaran">Pengeluaran</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Kategori</Label>
-                          <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                            <SelectTrigger data-testid="cashbook-category-select"><SelectValue placeholder="Pilih" /></SelectTrigger>
-                            <SelectContent className="bg-white">{categories[form.type].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div><Label>Jumlah (Rp)</Label><Input type="number" data-testid="cashbook-amount-input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></div>
-                        <div><Label>Tanggal</Label><Input type="date" data-testid="cashbook-date-input" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
-                      </div>
-                      <div><Label>Deskripsi</Label><Textarea data-testid="cashbook-desc-input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Contoh: Beli semen 5 sak" /></div>
                       <div>
-                        <Label className="mb-2 block">Foto Nota <span className="text-red-500">*</span></Label>
-                        <ReceiptUpload value={form.receipt_base64} onChange={(b64) => setForm({ ...form, receipt_base64: b64 })} testId="cashbook-receipt" />
+                        <Label className="mb-2 block">Tipe Catatan</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            data-testid="cashbook-type-pemasukan"
+                            onClick={() => setForm({ ...emptyEntry(), type: "pemasukan" })}
+                            className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition ${form.type === "pemasukan" ? "border-green-600 bg-green-50 text-green-800" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+                          >
+                            <TrendingUp className="h-5 w-5" />
+                            <span className="font-semibold text-sm">Pemasukan</span>
+                          </button>
+                          <button
+                            type="button"
+                            data-testid="cashbook-type-pengeluaran"
+                            onClick={() => setForm({ ...emptyEntry(), type: "pengeluaran" })}
+                            className={`p-3 rounded-lg border-2 flex flex-col items-center gap-1 transition ${form.type === "pengeluaran" ? "border-red-600 bg-red-50 text-red-800" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+                          >
+                            <TrendingDown className="h-5 w-5" />
+                            <span className="font-semibold text-sm">Pengeluaran</span>
+                          </button>
+                        </div>
                       </div>
+
+                      <div><Label>Nominal (Rp) <span className="text-red-500">*</span></Label><Input type="number" data-testid="cashbook-amount-input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className="h-11 mt-1.5 font-mono tabular" placeholder="0" /></div>
+
+                      {form.type === "pengeluaran" && (
+                        <>
+                          <div>
+                            <Label>Kategori <span className="text-red-500">*</span></Label>
+                            <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                              <SelectTrigger data-testid="cashbook-category-select" className="h-11 mt-1.5"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
+                              <SelectContent className="bg-white">{PENGELUARAN_CATS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div><Label>Deskripsi (opsional)</Label><Textarea data-testid="cashbook-desc-input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Contoh: Beli semen 5 sak" /></div>
+                          <div>
+                            <Label className="mb-2 block">Foto Nota <span className="text-red-500">*</span></Label>
+                            <ReceiptUpload value={form.receipt_base64} onChange={(b64) => setForm({ ...form, receipt_base64: b64 })} testId="cashbook-receipt" />
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <DialogFooter><Button onClick={submit} data-testid="cashbook-submit-btn" className="bg-blue-700 hover:bg-blue-800">Simpan</Button></DialogFooter>
+                    <DialogFooter><Button onClick={submit} data-testid="cashbook-submit-btn" className={form.type === "pemasukan" ? "bg-green-600 hover:bg-green-700" : "bg-blue-700 hover:bg-blue-800"}>Simpan</Button></DialogFooter>
                   </DialogContent>
                 </Dialog>
               )}
@@ -284,7 +305,6 @@ export default function CashBook() {
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Kategori</TableHead>
                   <TableHead>Deskripsi</TableHead>
-                  <TableHead>Oleh</TableHead>
                   <TableHead className="text-right">Jumlah</TableHead>
                   <TableHead>Nota</TableHead>
                   <TableHead></TableHead>
@@ -295,14 +315,13 @@ export default function CashBook() {
                   <TableRow key={i.id} data-testid={`cashbook-row-${i.id}`}>
                     <TableCell className="text-sm text-slate-600">{formatDateTime(i.date)}</TableCell>
                     <TableCell><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${i.type === "pemasukan" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{i.category}</span></TableCell>
-                    <TableCell className="text-slate-700 max-w-xs truncate">{i.description}</TableCell>
-                    <TableCell className="text-slate-600 text-sm">{i.user_name || "-"}</TableCell>
+                    <TableCell className="text-slate-700 max-w-xs truncate">{i.description || "-"}</TableCell>
                     <TableCell className={`text-right font-mono tabular font-semibold ${i.type === "pemasukan" ? "text-green-700" : "text-red-700"}`}>{i.type === "pemasukan" ? "+" : "-"}{formatIDR(i.amount)}</TableCell>
-                    <TableCell>{i.receipt_base64 ? <Button size="icon" variant="ghost" onClick={() => setPreview(i.receipt_base64)} data-testid={`cashbook-view-nota-${i.id}`}><Eye className="h-4 w-4" /></Button> : <Camera className="h-4 w-4 text-slate-300" />}</TableCell>
+                    <TableCell>{i.receipt_base64 ? <Button size="icon" variant="ghost" onClick={() => setPreview(i.receipt_base64)} data-testid={`cashbook-view-nota-${i.id}`}><Eye className="h-4 w-4" /></Button> : <span className="text-slate-300 text-xs">—</span>}</TableCell>
                     <TableCell>{(user.role === "owner" || (i.user_id === user.id && !isViewer)) && <Button size="icon" variant="ghost" onClick={() => remove(i.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>}</TableCell>
                   </TableRow>
                 ))}
-                {activeEntries.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-8">Buku kas ini masih kosong.{canWrite && ` Tekan "Catatan Baru" untuk mulai.`}</TableCell></TableRow>}
+                {activeEntries.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8">Buku kas ini masih kosong.{canWrite && ` Tekan "Catatan Baru" untuk mulai.`}</TableCell></TableRow>}
               </TableBody>
             </Table>
           </Card>
