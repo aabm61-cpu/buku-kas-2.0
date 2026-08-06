@@ -169,6 +169,11 @@ class AssignmentIn(BaseModel):
     location_id: str
     user_id: str
     daily_rate: float = 0
+    role_type: Literal["pic", "member", "viewer"] = "pic"
+
+class BukuKasCreate(BaseModel):
+    project_id: str
+    member_user_ids: List[str] = []  # viewers (read-only)
 
 class CashBookIn(BaseModel):
     location_id: str
@@ -446,6 +451,75 @@ async def delete_assignment(aid: str, user=Depends(require_role("owner", "bendah
     await log_activity(user, "unassign", "assignment", aid)
     return {"ok": True}
 
+# ---------------- Buku Kas (Tim ownership + viewers) ----------------
+@api.get("/bukukas/available")
+async def bukukas_available(user=Depends(require_role("tim", "owner"))):
+    """Projects yg belum diklaim jadi buku kas oleh Tim manapun."""
+    # find all locations that are already claimed
+    claimed_project_ids = set()
+    async for l in db.locations.find({"claimed_by_user_id": {"$ne": None, "$exists": True}}):
+        if l.get("claimed_by_user_id"):
+            claimed_project_ids.add(l["project_id"])
+    # active projects not claimed & not completed
+    result = []
+    async for p in db.projects.find({}):
+        if p["id"] in claimed_project_ids:
+            continue
+        if p.get("is_completed"):
+            continue
+        if p.get("status") == "selesai":
+            continue
+        result.append(clean_doc(p))
+    return result
+
+@api.post("/bukukas")
+async def create_bukukas(payload: BukuKasCreate, user=Depends(require_role("tim", "owner"))):
+    proj = await db.projects.find_one({"id": payload.project_id})
+    if not proj:
+        raise HTTPException(404, "Proyek tidak ditemukan")
+    # Find matching location (auto-created); if missing (legacy project), create one now
+    loc = await db.locations.find_one({"project_id": payload.project_id})
+    if not loc:
+        loc = {
+            "id": new_id(),
+            "project_id": payload.project_id,
+            "name": proj["name"],
+            "address": "",
+            "pic_user_id": None,
+            "status": "aktif",
+            "auto_created": True,
+            "created_at": now_iso(),
+        }
+        await db.locations.insert_one(loc)
+    if loc.get("claimed_by_user_id"):
+        raise HTTPException(400, "Buku kas untuk proyek ini sudah diklaim tim lain")
+    # Claim location
+    await db.locations.update_one({"id": loc["id"]}, {"$set": {"claimed_by_user_id": user["id"]}})
+    # Assign creator as pic (writable)
+    await db.location_assignments.insert_one({
+        "id": new_id(), "location_id": loc["id"], "user_id": user["id"],
+        "daily_rate": 0, "role_type": "pic", "created_at": now_iso(), "added_by": user["id"],
+    })
+    # Assign members as viewers (read-only)
+    added = 0
+    for uid in payload.member_user_ids:
+        if uid == user["id"]:
+            continue
+        u = await db.users.find_one({"id": uid, "role": "tim"})
+        if not u:
+            continue
+        exists = await db.location_assignments.find_one({"location_id": loc["id"], "user_id": uid})
+        if exists:
+            continue
+        await db.location_assignments.insert_one({
+            "id": new_id(), "location_id": loc["id"], "user_id": uid,
+            "daily_rate": 0, "role_type": "viewer", "created_at": now_iso(), "added_by": user["id"],
+        })
+        added += 1
+    await log_activity(user, "create", "bukukas", loc["id"], f"Klaim buku kas {loc['name']} (+{added} peninjau)")
+    l = await db.locations.find_one({"id": loc["id"]})
+    return clean_doc(l)
+
 # ---------------- Cash Book ----------------
 @api.get("/cashbook")
 async def list_cashbook(location_id: Optional[str] = None, user=Depends(get_current_user)):
@@ -470,9 +544,11 @@ async def create_cashbook(payload: CashBookIn, user=Depends(require_role("tim", 
         raise HTTPException(400, "Foto nota wajib diupload")
     # verify access
     if user["role"] == "tim":
-        allowed = await user_location_ids(user) or []
-        if payload.location_id not in allowed:
+        assignment = await db.location_assignments.find_one({"location_id": payload.location_id, "user_id": user["id"]})
+        if not assignment:
             raise HTTPException(403, "Anda tidak ditugaskan di lokasi ini")
+        if assignment.get("role_type") == "viewer":
+            raise HTTPException(403, "Anda hanya peninjau buku kas ini, tidak bisa membuat catatan")
     loc = await db.locations.find_one({"id": payload.location_id})
     if not loc:
         raise HTTPException(404, "Lokasi tidak ditemukan")

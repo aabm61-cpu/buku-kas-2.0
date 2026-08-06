@@ -8,8 +8,9 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, TrendingUp, TrendingDown, Trash2, Download, Eye, Camera, BookOpen, MapPin, Layers } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Trash2, Download, Eye, Camera, BookOpen, MapPin, Layers, BookPlus, EyeOff, Crown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import ReceiptUpload from "@/components/ReceiptUpload";
@@ -26,23 +27,63 @@ export default function CashBook() {
   const [items, setItems] = useState([]);
   const [locations, setLocations] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [selectedLoc, setSelectedLoc] = useState(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyEntry());
   const [preview, setPreview] = useState(null);
+  // Create Buku Kas dialog
+  const [openCreate, setOpenCreate] = useState(false);
+  const [availableProjects, setAvailableProjects] = useState([]);
+  const [teamUsers, setTeamUsers] = useState([]);
+  const [createForm, setCreateForm] = useState({ project_id: "", member_user_ids: [] });
 
   const load = async () => {
-    const [c, l, p] = await Promise.all([api.get("/cashbook"), api.get("/locations"), api.get("/projects")]);
-    setItems(c.data); setLocations(l.data); setProjects(p.data);
+    const [c, l, p, a] = await Promise.all([
+      api.get("/cashbook"),
+      api.get("/locations"),
+      api.get("/projects"),
+      api.get("/assignments").catch(() => ({ data: [] })),
+    ]);
+    setItems(c.data); setLocations(l.data); setProjects(p.data); setAssignments(a.data);
     if (!selectedLoc && l.data.length > 0) setSelectedLoc(l.data[0].id);
   };
   useEffect(() => { load(); }, []); // eslint-disable-line
 
-  const canWrite = ["tim", "bendahara", "owner"].includes(user.role);
+  const openCreateDialog = async () => {
+    try {
+      const [av, us] = await Promise.all([
+        api.get("/bukukas/available"),
+        api.get("/users"),
+      ]);
+      setAvailableProjects(av.data);
+      setTeamUsers(us.data.filter(u => u.role === "tim" && u.id !== user.id && u.active !== false));
+      setCreateForm({ project_id: "", member_user_ids: [] });
+      setOpenCreate(true);
+    } catch (e) { toast.error("Gagal memuat data"); }
+  };
+
+  const submitCreate = async () => {
+    if (!createForm.project_id) { toast.error("Pilih proyek terlebih dulu"); return; }
+    try {
+      const res = await api.post("/bukukas", createForm);
+      toast.success(`Buku kas "${res.data.name}" berhasil dibuat`);
+      setOpenCreate(false); setCreateForm({ project_id: "", member_user_ids: [] });
+      await load();
+      setSelectedLoc(res.data.id);
+    } catch (e) { toast.error(e.response?.data?.detail || "Gagal"); }
+  };
+
+  const toggleMember = (uid) => {
+    const on = createForm.member_user_ids.includes(uid);
+    setCreateForm({ ...createForm, member_user_ids: on ? createForm.member_user_ids.filter(x => x !== uid) : [...createForm.member_user_ids, uid] });
+  };
+
   const projName = (id) => projects.find(p => p.id === id)?.name || "-";
   const projByLoc = (locId) => projects.find(p => p.id === locations.find(l => l.id === locId)?.project_id);
+  const roleAtLoc = (locId) => assignments.find(a => a.location_id === locId && a.user_id === user.id)?.role_type;
+  const isViewer = user.role === "tim" && roleAtLoc(selectedLoc) === "viewer";
 
-  // Per-buku-kas summary
   const summaryByLoc = useMemo(() => {
     const map = {};
     locations.forEach(l => { map[l.id] = { in: 0, out: 0, count: 0 }; });
@@ -55,10 +96,7 @@ export default function CashBook() {
     return map;
   }, [items, locations]);
 
-  const activeEntries = useMemo(() => {
-    if (!selectedLoc) return [];
-    return items.filter(i => i.location_id === selectedLoc);
-  }, [items, selectedLoc]);
+  const activeEntries = useMemo(() => selectedLoc ? items.filter(i => i.location_id === selectedLoc) : [], [items, selectedLoc]);
   const activeSum = summaryByLoc[selectedLoc] || { in: 0, out: 0, count: 0 };
   const activeLoc = locations.find(l => l.id === selectedLoc);
   const activeProj = activeLoc ? projByLoc(activeLoc.id) : null;
@@ -77,20 +115,29 @@ export default function CashBook() {
   const remove = async (id) => { if (!window.confirm("Hapus catatan?")) return; await api.delete(`/cashbook/${id}`); load(); };
 
   const exportCSV = () => {
-    const rows = [["Tanggal", "Tipe", "Buku Kas", "Proyek", "Kategori", "Deskripsi", "Jumlah", "Oleh"]];
-    activeEntries.forEach(i => rows.push([i.date, i.type, activeLoc?.name || "", projName(i.project_id), i.category, i.description, i.amount, i.user_name || ""]));
+    const rows = [["Tanggal", "Tipe", "Buku Kas", "Kategori", "Deskripsi", "Jumlah", "Oleh"]];
+    activeEntries.forEach(i => rows.push([i.date, i.type, activeLoc?.name || "", i.category, i.description, i.amount, i.user_name || ""]));
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
     a.download = `buku-kas-${activeLoc?.name || "all"}-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
 
+  const canWrite = ["bendahara", "owner"].includes(user.role) || (user.role === "tim" && !isViewer && roleAtLoc(selectedLoc));
+
   return (
     <div className="space-y-6">
-      <div>
-        <div className="text-xs tracking-widest text-slate-500 mb-2">MULTI BUKU KAS · SATU BUKU PER LOKASI PROYEK</div>
-        <h1 className="font-display font-extrabold text-3xl text-slate-900">Buku Kas</h1>
-        <p className="text-slate-500 mt-1">Pilih buku kas sesuai lokasi proyek Anda. Setiap buku berdiri sendiri — data tidak tercampur antar proyek.</p>
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <div className="text-xs tracking-widest text-slate-500 mb-2">MULTI BUKU KAS · SATU BUKU PER LOKASI PROYEK</div>
+          <h1 className="font-display font-extrabold text-3xl text-slate-900">Buku Kas</h1>
+          <p className="text-slate-500 mt-1">Pilih buku kas sesuai lokasi proyek Anda. Setiap buku berdiri sendiri — data tidak tercampur.</p>
+        </div>
+        {(user.role === "tim" || user.role === "owner") && (
+          <Button onClick={openCreateDialog} data-testid="bukukas-create-btn" className="rounded-full bg-orange-500 hover:bg-orange-600">
+            <BookPlus className="h-4 w-4 mr-2" /> Buat Buku Kas
+          </Button>
+        )}
       </div>
 
       {/* Buku Kas Selector */}
@@ -100,11 +147,10 @@ export default function CashBook() {
           <div className="text-xs font-semibold tracking-widest text-slate-500">PILIH BUKU KAS</div>
           <div className="text-xs text-slate-400">{locations.length} buku tersedia</div>
         </div>
-
         {locations.length === 0 ? (
           <Card className="p-6 text-center text-slate-500 bg-white border-slate-200">
             <BookOpen className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-            Belum ada lokasi/proyek yang tersedia untuk Anda.
+            Belum ada buku kas. Klik <strong>Buat Buku Kas</strong> untuk mengklaim proyek pertama Anda.
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -113,6 +159,7 @@ export default function CashBook() {
               const proj = projByLoc(l.id);
               const isActive = selectedLoc === l.id;
               const saldo = s.in - s.out;
+              const myRole = assignments.find(a => a.location_id === l.id && a.user_id === user.id)?.role_type;
               return (
                 <button
                   key={l.id}
@@ -124,14 +171,14 @@ export default function CashBook() {
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isActive ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-500"}`}>
                       <BookOpen className="h-4 w-4" />
                     </div>
-                    {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-700 text-white">AKTIF</span>}
+                    <div className="flex items-center gap-1">
+                      {myRole === "pic" && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 inline-flex items-center gap-1"><Crown className="h-3 w-3" />PEMILIK</span>}
+                      {myRole === "viewer" && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 inline-flex items-center gap-1"><EyeOff className="h-3 w-3" />PENINJAU</span>}
+                      {isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-700 text-white">AKTIF</span>}
+                    </div>
                   </div>
                   <div className="font-display font-bold text-slate-900 leading-tight truncate">{l.name}</div>
-                  {proj && (
-                    <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> {proj.work_type || "-"}
-                    </div>
-                  )}
+                  {proj && <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1"><MapPin className="h-3 w-3" /> {proj.work_type || "-"}</div>}
                   <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                     <span className="text-slate-500">{s.count} pencatatan</span>
                     <span className={`font-mono tabular font-semibold ${saldo >= 0 ? "text-green-700" : "text-red-700"}`}>{formatIDR(saldo)}</span>
@@ -143,12 +190,12 @@ export default function CashBook() {
         )}
       </div>
 
-      {/* Selected Buku Kas Detail */}
+      {/* Active Buku Kas Detail */}
       {activeLoc && (
         <>
           <div className="flex items-end justify-between flex-wrap gap-4">
             <div>
-              <div className="text-xs tracking-widest text-slate-500 mb-1">BUKU KAS AKTIF</div>
+              <div className="text-xs tracking-widest text-slate-500 mb-1">BUKU KAS AKTIF {isViewer && "· MODE PENINJAU"}</div>
               <h2 className="font-display font-extrabold text-2xl text-slate-900">{activeLoc.name}</h2>
               {activeProj && <div className="text-sm text-slate-500 mt-1">Proyek: <span className="font-semibold text-slate-700">{activeProj.name}</span> · {activeProj.work_type}</div>}
             </div>
@@ -196,6 +243,12 @@ export default function CashBook() {
             </div>
           </div>
 
+          {isViewer && (
+            <Card className="p-3 bg-slate-50 border-slate-200 flex items-center gap-2 text-sm text-slate-700">
+              <EyeOff className="h-4 w-4" /> Anda tercatat sebagai <strong>peninjau</strong> di buku kas ini — hanya bisa melihat, tidak bisa mencatat.
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="p-5 bg-white border-slate-200 card-lift" data-testid="cashbook-summary-in"><div className="flex items-center gap-3"><div className="h-10 w-10 rounded-lg bg-green-50 text-green-700 flex items-center justify-center"><TrendingUp className="h-5 w-5" /></div><div><div className="text-xs text-slate-500 uppercase tracking-wider">Pemasukan</div><div className="font-display font-bold text-xl tabular">{formatIDR(activeSum.in)}</div></div></div></Card>
             <Card className="p-5 bg-white border-slate-200 card-lift" data-testid="cashbook-summary-out"><div className="flex items-center gap-3"><div className="h-10 w-10 rounded-lg bg-red-50 text-red-700 flex items-center justify-center"><TrendingDown className="h-5 w-5" /></div><div><div className="text-xs text-slate-500 uppercase tracking-wider">Pengeluaran</div><div className="font-display font-bold text-xl tabular">{formatIDR(activeSum.out)}</div></div></div></Card>
@@ -224,15 +277,56 @@ export default function CashBook() {
                     <TableCell className="text-slate-600 text-sm">{i.user_name || "-"}</TableCell>
                     <TableCell className={`text-right font-mono tabular font-semibold ${i.type === "pemasukan" ? "text-green-700" : "text-red-700"}`}>{i.type === "pemasukan" ? "+" : "-"}{formatIDR(i.amount)}</TableCell>
                     <TableCell>{i.receipt_base64 ? <Button size="icon" variant="ghost" onClick={() => setPreview(i.receipt_base64)} data-testid={`cashbook-view-nota-${i.id}`}><Eye className="h-4 w-4" /></Button> : <Camera className="h-4 w-4 text-slate-300" />}</TableCell>
-                    <TableCell>{(user.role === "owner" || i.user_id === user.id) && <Button size="icon" variant="ghost" onClick={() => remove(i.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>}</TableCell>
+                    <TableCell>{(user.role === "owner" || (i.user_id === user.id && !isViewer)) && <Button size="icon" variant="ghost" onClick={() => remove(i.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>}</TableCell>
                   </TableRow>
                 ))}
-                {activeEntries.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-8">Buku kas ini masih kosong. Tekan "Catatan Baru" untuk mulai.</TableCell></TableRow>}
+                {activeEntries.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-8">Buku kas ini masih kosong.{canWrite && ` Tekan "Catatan Baru" untuk mulai.`}</TableCell></TableRow>}
               </TableBody>
             </Table>
           </Card>
         </>
       )}
+
+      {/* Buat Buku Kas Dialog */}
+      <Dialog open={openCreate} onOpenChange={setOpenCreate}>
+        <DialogContent className="bg-white max-w-lg">
+          <DialogHeader><DialogTitle>Buat Buku Kas Baru</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Nama Buku Kas (Proyek Berjalan)</Label>
+              <Select value={createForm.project_id} onValueChange={v => setCreateForm({ ...createForm, project_id: v })}>
+                <SelectTrigger data-testid="bukukas-project-select" className="h-11 mt-1.5"><SelectValue placeholder="Pilih proyek yang akan diklaim" /></SelectTrigger>
+                <SelectContent className="bg-white">
+                  {availableProjects.length === 0 && <div className="p-3 text-sm text-slate-500 text-center">Tidak ada proyek tersedia. Semua sudah diklaim tim lain.</div>}
+                  {availableProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name} · {p.work_type}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500 mt-1.5">Setelah diklaim, proyek ini tidak muncul lagi di dropdown tim lain.</p>
+            </div>
+            <div>
+              <Label>Tambahkan Anggota Tim (Peninjau — Read Only)</Label>
+              <div className="mt-1.5 border border-slate-200 rounded-lg max-h-48 overflow-y-auto p-2 bg-slate-50">
+                {teamUsers.length === 0 && <div className="text-sm text-slate-500 p-2 text-center">Tidak ada anggota tim lain.</div>}
+                {teamUsers.map(u => (
+                  <label key={u.id} className="flex items-center gap-3 p-2 rounded hover:bg-white cursor-pointer" data-testid={`bukukas-member-${u.id}`}>
+                    <Checkbox checked={createForm.member_user_ids.includes(u.id)} onCheckedChange={() => toggleMember(u.id)} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-slate-900 truncate">{u.name}</div>
+                      <div className="text-xs text-slate-500">@{u.username}</div>
+                    </div>
+                    <EyeOff className="h-3.5 w-3.5 text-slate-400" />
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 mt-1.5">Anggota yang ditambahkan hanya dapat <strong>melihat</strong> buku kas ini, tidak dapat membuat/mengedit catatan.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenCreate(false)}>Batal</Button>
+            <Button onClick={submitCreate} data-testid="bukukas-create-submit" className="bg-orange-500 hover:bg-orange-600">Buat Buku Kas</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!preview} onOpenChange={(v) => !v && setPreview(null)}>
         <DialogContent className="bg-white max-w-3xl">
