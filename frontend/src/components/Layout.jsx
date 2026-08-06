@@ -19,6 +19,7 @@ const NAV = [
   { to: "/kasbon", label: "Kasbon", icon: Coins, roles: ["owner", "bendahara", "tim"] },
   { to: "/team-payments", label: "Bayaran Tim", icon: Wallet, roles: ["owner", "bendahara"] },
   { to: "/team", label: "Anggota Tim", icon: UserPlus, roles: ["owner"] },
+  { to: "/history-bukukas", label: "Riwayat Buku Kas", icon: HistoryIcon, roles: ["owner", "bendahara", "tim"] },
   { to: "/history", label: "History Lokasi", icon: HistoryIcon, roles: ["tim", "owner", "bendahara"] },
   { to: "/activities", label: "Log Aktivitas", icon: ActivityIcon, roles: ["owner"] },
 ];

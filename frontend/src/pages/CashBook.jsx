@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, TrendingUp, TrendingDown, Trash2, Download, Eye, Camera, BookOpen, MapPin, Layers, BookPlus, EyeOff, Crown } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Trash2, Download, Eye, Camera, BookOpen, MapPin, Layers, BookPlus, EyeOff, Crown, ArrowLeft, CheckCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import ReceiptUpload from "@/components/ReceiptUpload";
@@ -114,6 +114,18 @@ export default function CashBook() {
 
   const remove = async (id) => { if (!window.confirm("Hapus catatan?")) return; await api.delete(`/cashbook/${id}`); load(); };
 
+  const closeBukuKas = async () => {
+    if (!window.confirm(`Selesaikan buku kas "${activeLoc.name}"? Buku ini akan dipindah ke Riwayat Buku Kas dan tidak bisa dicatat lagi.`)) return;
+    try {
+      await api.post(`/bukukas/${activeLoc.id}/close`);
+      toast.success("Buku kas diselesaikan & dipindah ke Riwayat");
+      setSelectedLoc(null);
+      await load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Gagal menyelesaikan"); }
+  };
+
+  const canClose = user.role === "owner" || user.role === "bendahara" || roleAtLoc(selectedLoc) === "pic";
+
   const exportCSV = () => {
     const rows = [["Tanggal", "Tipe", "Buku Kas", "Kategori", "Deskripsi", "Jumlah", "Oleh"]];
     activeEntries.forEach(i => rows.push([i.date, i.type, activeLoc?.name || "", i.category, i.description, i.amount, i.user_name || ""]));
@@ -140,7 +152,8 @@ export default function CashBook() {
         )}
       </div>
 
-      {/* Buku Kas Selector */}
+      {/* Buku Kas Selector - only shown when no active buku kas */}
+      {!selectedLoc && (
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Layers className="h-4 w-4 text-blue-700" />
@@ -189,18 +202,27 @@ export default function CashBook() {
           </div>
         )}
       </div>
+      )}
 
       {/* Active Buku Kas Detail */}
       {activeLoc && (
         <>
           <div className="flex items-end justify-between flex-wrap gap-4">
-            <div>
-              <div className="text-xs tracking-widest text-slate-500 mb-1">BUKU KAS AKTIF {isViewer && "· MODE PENINJAU"}</div>
-              <h2 className="font-display font-extrabold text-2xl text-slate-900">{activeLoc.name}</h2>
-              {activeProj && <div className="text-sm text-slate-500 mt-1">Proyek: <span className="font-semibold text-slate-700">{activeProj.name}</span> · {activeProj.work_type}</div>}
+            <div className="flex items-start gap-3">
+              <Button variant="outline" size="icon" onClick={() => setSelectedLoc(null)} data-testid="bukukas-back-btn" className="rounded-full mt-1"><ArrowLeft className="h-4 w-4" /></Button>
+              <div>
+                <div className="text-xs tracking-widest text-slate-500 mb-1">BUKU KAS AKTIF {isViewer && "· MODE PENINJAU"}</div>
+                <h2 className="font-display font-extrabold text-2xl text-slate-900">{activeLoc.name}</h2>
+                {activeProj && <div className="text-sm text-slate-500 mt-1">Proyek: <span className="font-semibold text-slate-700">{activeProj.name}</span> · {activeProj.work_type}</div>}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={exportCSV} className="rounded-full" data-testid="cashbook-export-btn"><Download className="h-4 w-4 mr-2" /> Export</Button>
+              {canClose && (
+                <Button onClick={closeBukuKas} data-testid="bukukas-close-btn" className="rounded-full bg-green-600 hover:bg-green-700 text-white">
+                  <CheckCheck className="h-4 w-4 mr-2" /> Selesai
+                </Button>
+              )}
               {canWrite && (
                 <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setForm(emptyEntry()); }}>
                   <DialogTrigger asChild><Button data-testid="cashbook-add-btn" className="rounded-full bg-blue-700 hover:bg-blue-800"><Plus className="h-4 w-4 mr-2" /> Catatan Baru</Button></DialogTrigger>

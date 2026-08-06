@@ -382,7 +382,9 @@ async def delete_project(pid: str, user=Depends(require_role("owner"))):
 @api.get("/locations")
 async def list_locations(user=Depends(get_current_user)):
     allowed = await user_location_ids(user)
-    q = {} if allowed is None else {"id": {"$in": allowed}}
+    q = {"is_closed": {"$ne": True}}
+    if allowed is not None:
+        q["id"] = {"$in": allowed}
     return [clean_doc(l) async for l in db.locations.find(q)]
 
 @api.post("/locations")
@@ -519,6 +521,43 @@ async def create_bukukas(payload: BukuKasCreate, user=Depends(require_role("tim"
     await log_activity(user, "create", "bukukas", loc["id"], f"Klaim buku kas {loc['name']} (+{added} peninjau)")
     l = await db.locations.find_one({"id": loc["id"]})
     return clean_doc(l)
+
+@api.post("/bukukas/{lid}/close")
+async def close_bukukas(lid: str, user=Depends(require_role("tim", "bendahara", "owner"))):
+    loc = await db.locations.find_one({"id": lid})
+    if not loc:
+        raise HTTPException(404, "Buku kas tidak ditemukan")
+    if user["role"] == "tim":
+        # Only pic (creator) or bendahara/owner can close
+        a = await db.location_assignments.find_one({"location_id": lid, "user_id": user["id"]})
+        if not a or a.get("role_type") != "pic":
+            raise HTTPException(403, "Hanya pemilik buku kas yang dapat menyelesaikan")
+    await db.locations.update_one({"id": lid}, {"$set": {"is_closed": True, "closed_at": now_iso(), "closed_by": user["id"]}})
+    await log_activity(user, "close", "bukukas", lid, f"Selesaikan buku kas {loc['name']}")
+    return {"ok": True}
+
+@api.get("/bukukas/history")
+async def bukukas_history(user=Depends(get_current_user)):
+    """List all CLOSED buku kas (locations)."""
+    q = {"is_closed": True}
+    if user["role"] == "tim":
+        allowed = await user_location_ids(user) or []
+        q["id"] = {"$in": allowed}
+    result = []
+    async for l in db.locations.find(q).sort("closed_at", -1):
+        # attach cashbook summary
+        pipeline = [{"$match": {"location_id": l["id"]}}, {"$group": {"_id": "$type", "sum": {"$sum": "$amount"}, "cnt": {"$sum": 1}}}]
+        s_in = 0.0; s_out = 0.0; cnt = 0
+        async for r in db.cashbook.aggregate(pipeline):
+            if r["_id"] == "pemasukan": s_in = r["sum"]
+            elif r["_id"] == "pengeluaran": s_out = r["sum"]
+            cnt += r["cnt"]
+        entry = clean_doc(l)
+        entry["total_in"] = s_in
+        entry["total_out"] = s_out
+        entry["count"] = cnt
+        result.append(entry)
+    return result
 
 # ---------------- Cash Book ----------------
 @api.get("/cashbook")
