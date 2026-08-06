@@ -331,7 +331,19 @@ async def list_projects(user=Depends(get_current_user)):
 async def create_project(payload: ProjectIn, user=Depends(require_role("owner", "penagihan"))):
     doc = {"id": new_id(), **payload.model_dump(), "created_at": now_iso(), "created_by": user["id"]}
     await db.projects.insert_one(doc)
-    await log_activity(user, "create", "project", doc["id"], f"Buat proyek {doc['name']}")
+    # Auto-create a matching Location (=buku kas) with same name as project
+    loc_id = new_id()
+    await db.locations.insert_one({
+        "id": loc_id,
+        "project_id": doc["id"],
+        "name": doc["name"],
+        "address": "",
+        "pic_user_id": None,
+        "status": "aktif",
+        "auto_created": True,
+        "created_at": now_iso(),
+    })
+    await log_activity(user, "create", "project", doc["id"], f"Buat proyek {doc['name']} (+ buku kas otomatis)")
     return clean_doc(doc)
 
 @api.patch("/projects/{pid}")
