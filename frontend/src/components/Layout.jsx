@@ -12,13 +12,13 @@ import { roleLabel } from "@/lib/format";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "penagihan", "bendahara", "tim"] },
   { to: "/users", label: "User", icon: Users, roles: ["owner"] },
-  { to: "/projects", label: "Proyek", icon: FolderKanban, roles: ["owner", "penagihan", "bendahara", "tim"] },
-  { to: "/locations", label: "Lokasi", icon: MapPin, roles: ["owner", "bendahara", "tim"] },
+  { to: "/projects", label: "Proyek", icon: FolderKanban, roles: ["owner", "penagihan"] },
+  { to: "/locations", label: "Lokasi", icon: MapPin, roles: ["owner"] },
   { to: "/tagihan", label: "Tagihan", icon: FileText, roles: ["owner", "penagihan", "bendahara"] },
   { to: "/cashbook", label: "Buku Kas", icon: BookOpen, roles: ["owner", "bendahara", "tim"] },
   { to: "/kasbon", label: "Kasbon", icon: Coins, roles: ["owner", "bendahara", "tim"] },
   { to: "/team-payments", label: "Bayaran Tim", icon: Wallet, roles: ["owner", "bendahara"] },
-  { to: "/team", label: "Anggota Tim", icon: UserPlus, roles: ["tim", "bendahara", "owner"] },
+  { to: "/team", label: "Anggota Tim", icon: UserPlus, roles: ["owner"] },
   { to: "/history", label: "History Lokasi", icon: HistoryIcon, roles: ["tim", "owner", "bendahara"] },
   { to: "/activities", label: "Log Aktivitas", icon: ActivityIcon, roles: ["owner"] },
 ];

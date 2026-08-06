@@ -117,6 +117,119 @@ function CountdownCard({ tagihan }) {
   );
 }
 
+function BendaharaDashboard({ stats }) {
+  const [projects, setProjects] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [cashbook, setCashbook] = useState([]);
+
+  useEffect(() => {
+    Promise.all([
+      api.get("/projects").catch(() => ({ data: [] })),
+      api.get("/locations").catch(() => ({ data: [] })),
+      api.get("/cashbook").catch(() => ({ data: [] })),
+    ]).then(([p, l, c]) => { setProjects(p.data); setLocations(l.data); setCashbook(c.data); });
+  }, []);
+
+  // Group by location (=buku kas); only ongoing projects (work_status=sedang_berlangsung) with cashbook activity
+  const rows = React.useMemo(() => {
+    const byLoc = {};
+    cashbook.forEach(e => {
+      if (!byLoc[e.location_id]) byLoc[e.location_id] = { in: 0, out: 0, count: 0, last: e.date };
+      if (e.type === "pemasukan") byLoc[e.location_id].in += e.amount;
+      else byLoc[e.location_id].out += e.amount;
+      byLoc[e.location_id].count += 1;
+      if (e.date > byLoc[e.location_id].last) byLoc[e.location_id].last = e.date;
+    });
+    return locations.map(loc => {
+      const proj = projects.find(p => p.id === loc.project_id);
+      const s = byLoc[loc.id] || { in: 0, out: 0, count: 0, last: null };
+      return {
+        loc, proj,
+        in: s.in, out: s.out, saldo: s.in - s.out,
+        count: s.count, last: s.last,
+        work_status: proj?.work_status,
+      };
+    }).filter(r => r.work_status === "sedang_berlangsung" && r.proj && !r.proj.is_completed)
+      .sort((a, b) => a.saldo - b.saldo);
+  }, [projects, locations, cashbook]);
+
+  const totalSaldo = rows.reduce((s, r) => s + r.saldo, 0);
+  const totalIn = rows.reduce((s, r) => s + r.in, 0);
+  const totalOut = rows.reduce((s, r) => s + r.out, 0);
+  const criticalCount = rows.filter(r => r.saldo < 0).length;
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <div className="text-xs tracking-widest text-slate-500 mb-2">RINGKASAN — BENDAHARA</div>
+        <h1 className="font-display font-extrabold text-3xl lg:text-4xl text-slate-900">Dashboard Bendahara</h1>
+        <p className="text-slate-500 mt-1">Proyek yang sedang berjalan berdasarkan buku kas aktif dari tim lapangan.</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <StatCard testId="stat-bendahara-berjalan" icon={FolderKanban} label="Buku Kas Aktif" value={rows.length} color="blue" />
+        <StatCard testId="stat-bendahara-in" icon={TrendingUp} label="Total Pemasukan" value={formatIDR(totalIn)} color="green" />
+        <StatCard testId="stat-bendahara-out" icon={TrendingDown} label="Total Pengeluaran" value={formatIDR(totalOut)} color="red" />
+        <StatCard testId="stat-bendahara-saldo" icon={Wallet} label="Saldo Gabungan" value={formatIDR(totalSaldo)} color={totalSaldo >= 0 ? "blue" : "red"} />
+      </div>
+
+      {criticalCount > 0 && (
+        <Card className="p-4 bg-red-50 border-red-200 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+          <div className="flex-1">
+            <div className="font-semibold text-red-900">{criticalCount} buku kas dengan saldo minus</div>
+            <div className="text-sm text-red-700">Segera tinjau pengeluaran atau tambahkan termin dari klien.</div>
+          </div>
+        </Card>
+      )}
+
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="text-xs font-semibold tracking-widest text-slate-500">PROYEK BERJALAN · BUKU KAS AKTIF</div>
+          <span className="text-xs text-slate-400">Diurutkan berdasarkan saldo terkecil</span>
+        </div>
+        {rows.length === 0 ? (
+          <Card className="p-10 text-center text-slate-500 bg-white border-slate-200">
+            <FolderKanban className="h-10 w-10 mx-auto mb-3 text-slate-300" />
+            Belum ada buku kas yang sedang berlangsung.
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rows.map(r => (
+              <Card key={r.loc.id} data-testid={`bendahara-proj-${r.loc.id}`} className={`p-5 bg-white border-slate-200 card-lift relative overflow-hidden ${r.saldo < 0 ? "ring-2 ring-red-200" : ""}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display font-bold text-slate-900 truncate">{r.loc.name}</div>
+                    {r.proj && <div className="text-[11px] text-slate-500 mt-0.5">{r.proj.work_type} · {r.proj.client_name || "-"}</div>}
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 whitespace-nowrap">
+                    <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse" />Berjalan
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-green-50 rounded-md p-2">
+                    <div className="text-[10px] text-green-700 uppercase tracking-wider">Masuk</div>
+                    <div className="font-mono tabular font-semibold text-green-900 text-sm">{formatIDR(r.in)}</div>
+                  </div>
+                  <div className="bg-red-50 rounded-md p-2">
+                    <div className="text-[10px] text-red-700 uppercase tracking-wider">Keluar</div>
+                    <div className="font-mono tabular font-semibold text-red-900 text-sm">{formatIDR(r.out)}</div>
+                  </div>
+                </div>
+                <div className={`mt-3 pt-3 border-t border-slate-100 flex items-center justify-between ${r.saldo < 0 ? "text-red-700" : "text-slate-900"}`}>
+                  <span className="text-xs uppercase tracking-wider font-medium">Sisa Saldo</span>
+                  <span className="font-display font-extrabold text-lg font-mono tabular">{formatIDR(r.saldo)}</span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">{r.count} pencatatan{r.last ? ` · terakhir ${new Date(r.last).toLocaleDateString("id-ID")}` : ""}</div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PenagihanDashboard({ stats }) {
   const [tagihan, setTagihan] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -164,6 +277,7 @@ export default function Dashboard() {
   if (!stats) return <div className="text-slate-500">Memuat…</div>;
 
   if (user.role === "penagihan") return <PenagihanDashboard stats={stats} />;
+  if (user.role === "bendahara") return <BendaharaDashboard stats={stats} />;
 
   return (
     <div className="space-y-8">
