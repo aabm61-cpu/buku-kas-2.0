@@ -173,7 +173,13 @@ class AssignmentIn(BaseModel):
 
 class BukuKasCreate(BaseModel):
     project_id: str
-    member_user_ids: List[str] = []  # viewers (read-only)
+    member_user_ids: List[str] = []
+
+class TransferPIC(BaseModel):
+    new_pic_user_id: str
+
+class AddMembers(BaseModel):
+    member_user_ids: List[str]
 
 class CashBookIn(BaseModel):
     location_id: str
@@ -558,6 +564,62 @@ async def bukukas_history(user=Depends(get_current_user)):
         entry["count"] = cnt
         result.append(entry)
     return result
+
+@api.post("/bukukas/{lid}/transfer-pic")
+async def transfer_pic(lid: str, payload: TransferPIC, user=Depends(require_role("tim", "owner"))):
+    loc = await db.locations.find_one({"id": lid})
+    if not loc:
+        raise HTTPException(404, "Buku kas tidak ditemukan")
+    # Verify caller is current PIC
+    my_a = await db.location_assignments.find_one({"location_id": lid, "user_id": user["id"]})
+    if user["role"] != "owner" and (not my_a or my_a.get("role_type") != "pic"):
+        raise HTTPException(403, "Hanya PIC yang dapat memindahkan")
+    new_user = await db.users.find_one({"id": payload.new_pic_user_id, "role": "tim"})
+    if not new_user:
+        raise HTTPException(404, "User tim target tidak ditemukan")
+    if payload.new_pic_user_id == user["id"]:
+        raise HTTPException(400, "Anda sudah menjadi PIC")
+    # Demote current pic → viewer
+    if my_a:
+        await db.location_assignments.update_one({"id": my_a["id"]}, {"$set": {"role_type": "viewer"}})
+    # Promote or create new pic
+    target_a = await db.location_assignments.find_one({"location_id": lid, "user_id": payload.new_pic_user_id})
+    if target_a:
+        await db.location_assignments.update_one({"id": target_a["id"]}, {"$set": {"role_type": "pic"}})
+    else:
+        await db.location_assignments.insert_one({
+            "id": new_id(), "location_id": lid, "user_id": payload.new_pic_user_id,
+            "daily_rate": 0, "role_type": "pic", "created_at": now_iso(), "added_by": user["id"],
+        })
+    await db.locations.update_one({"id": lid}, {"$set": {"claimed_by_user_id": payload.new_pic_user_id}})
+    await log_activity(user, "transfer", "bukukas", lid, f"Pindah PIC ke {new_user['name']}")
+    return {"ok": True}
+
+@api.post("/bukukas/{lid}/add-members")
+async def add_members(lid: str, payload: AddMembers, user=Depends(require_role("tim", "owner"))):
+    loc = await db.locations.find_one({"id": lid})
+    if not loc:
+        raise HTTPException(404, "Buku kas tidak ditemukan")
+    my_a = await db.location_assignments.find_one({"location_id": lid, "user_id": user["id"]})
+    if user["role"] != "owner" and (not my_a or my_a.get("role_type") != "pic"):
+        raise HTTPException(403, "Hanya PIC yang dapat menambahkan anggota")
+    added = 0
+    for uid in payload.member_user_ids:
+        if uid == user["id"]:
+            continue
+        u = await db.users.find_one({"id": uid, "role": "tim"})
+        if not u:
+            continue
+        exists = await db.location_assignments.find_one({"location_id": lid, "user_id": uid})
+        if exists:
+            continue
+        await db.location_assignments.insert_one({
+            "id": new_id(), "location_id": lid, "user_id": uid,
+            "daily_rate": 0, "role_type": "viewer", "created_at": now_iso(), "added_by": user["id"],
+        })
+        added += 1
+    await log_activity(user, "add-members", "bukukas", lid, f"Tambah {added} anggota peninjau")
+    return {"ok": True, "added": added}
 
 # ---------------- Cash Book ----------------
 @api.get("/cashbook")

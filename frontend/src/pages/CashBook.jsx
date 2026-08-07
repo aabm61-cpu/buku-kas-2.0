@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, TrendingUp, TrendingDown, Trash2, Download, Eye, Camera, BookOpen, MapPin, Layers, BookPlus, EyeOff, Crown, ArrowLeft, CheckCheck } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Trash2, Download, Eye, Camera, BookOpen, MapPin, Layers, BookPlus, EyeOff, Crown, ArrowLeft, CheckCheck, UserPlus, UserCog } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import ReceiptUpload from "@/components/ReceiptUpload";
@@ -133,6 +133,47 @@ export default function CashBook() {
   };
 
   const canClose = user.role === "owner" || user.role === "bendahara" || roleAtLoc(selectedLoc) === "pic";
+  const isPic = user.role === "owner" || roleAtLoc(selectedLoc) === "pic";
+  const [openTransfer, setOpenTransfer] = useState(false);
+  const [openAddMember, setOpenAddMember] = useState(false);
+  const [newPicId, setNewPicId] = useState("");
+  const [pickedMembers, setPickedMembers] = useState([]);
+  const [otherTims, setOtherTims] = useState([]);
+
+  const openTransferDialog = async () => {
+    try {
+      const us = await api.get("/users");
+      setOtherTims(us.data.filter(u => u.role === "tim" && u.id !== user.id && u.active !== false));
+      setNewPicId("");
+      setOpenTransfer(true);
+    } catch { toast.error("Gagal memuat"); }
+  };
+  const submitTransfer = async () => {
+    if (!newPicId) { toast.error("Pilih PIC baru"); return; }
+    try {
+      await api.post(`/bukukas/${selectedLoc}/transfer-pic`, { new_pic_user_id: newPicId });
+      toast.success("PIC berhasil dipindahkan");
+      setOpenTransfer(false); load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Gagal"); }
+  };
+
+  const openAddDialog = async () => {
+    try {
+      const us = await api.get("/users");
+      const existingIds = assignments.filter(a => a.location_id === selectedLoc).map(a => a.user_id);
+      setOtherTims(us.data.filter(u => u.role === "tim" && u.id !== user.id && u.active !== false && !existingIds.includes(u.id)));
+      setPickedMembers([]);
+      setOpenAddMember(true);
+    } catch { toast.error("Gagal memuat"); }
+  };
+  const submitAddMembers = async () => {
+    if (pickedMembers.length === 0) { toast.error("Pilih minimal satu anggota"); return; }
+    try {
+      const res = await api.post(`/bukukas/${selectedLoc}/add-members`, { member_user_ids: pickedMembers });
+      toast.success(`${res.data.added} anggota ditambahkan sebagai peninjau`);
+      setOpenAddMember(false); load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Gagal"); }
+  };
 
   const exportCSV = () => {
     const rows = [["Tanggal", "Tipe", "Buku Kas", "Kategori", "Deskripsi", "Jumlah", "Oleh"]];
@@ -224,7 +265,17 @@ export default function CashBook() {
                 {activeProj && <div className="text-sm text-slate-500 mt-1">Proyek: <span className="font-semibold text-slate-700">{activeProj.name}</span> · {activeProj.work_type}</div>}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {isPic && (
+                <>
+                  <Button onClick={openTransferDialog} data-testid="bukukas-transfer-btn" variant="outline" className="rounded-full">
+                    <UserCog className="h-4 w-4 mr-2" /> Pindah PIC
+                  </Button>
+                  <Button onClick={openAddDialog} data-testid="bukukas-add-member-btn" variant="outline" className="rounded-full">
+                    <UserPlus className="h-4 w-4 mr-2" /> Tambah Tim
+                  </Button>
+                </>
+              )}
               {canClose && (
                 <Button onClick={closeBukuKas} data-testid="bukukas-close-btn" className="rounded-full bg-green-600 hover:bg-green-700 text-white">
                   <CheckCheck className="h-4 w-4 mr-2" /> Selesai
@@ -365,6 +416,57 @@ export default function CashBook() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenCreate(false)}>Batal</Button>
             <Button onClick={submitCreate} data-testid="bukukas-create-submit" className="bg-orange-500 hover:bg-orange-600">Buat Buku Kas</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer PIC Dialog */}
+      <Dialog open={openTransfer} onOpenChange={setOpenTransfer}>
+        <DialogContent className="bg-white max-w-md">
+          <DialogHeader><DialogTitle>Pindah PIC Buku Kas</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">PIC baru akan bisa mencatat pemasukan/pengeluaran. Anda otomatis menjadi peninjau (read-only).</p>
+            <Label>Pilih Tim Pengganti</Label>
+            <Select value={newPicId} onValueChange={setNewPicId}>
+              <SelectTrigger data-testid="transfer-pic-select"><SelectValue placeholder="Pilih anggota tim" /></SelectTrigger>
+              <SelectContent className="bg-white">
+                {otherTims.map(u => <SelectItem key={u.id} value={u.id}>{u.name} · @{u.username}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenTransfer(false)}>Batal</Button>
+            <Button onClick={submitTransfer} data-testid="transfer-pic-submit" className="bg-blue-700 hover:bg-blue-800">Pindahkan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Members Dialog */}
+      <Dialog open={openAddMember} onOpenChange={setOpenAddMember}>
+        <DialogContent className="bg-white max-w-md">
+          <DialogHeader><DialogTitle>Tambah Anggota Tim (Peninjau)</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">Anggota yang ditambahkan hanya bisa <strong>melihat</strong> catatan buku kas ini.</p>
+            <div className="border border-slate-200 rounded-lg max-h-56 overflow-y-auto p-2 bg-slate-50">
+              {otherTims.length === 0 && <div className="text-sm text-slate-500 p-2 text-center">Semua tim sudah tergabung atau tidak ada tim lain.</div>}
+              {otherTims.map(u => (
+                <label key={u.id} className="flex items-center gap-3 p-2 rounded hover:bg-white cursor-pointer" data-testid={`addmember-${u.id}`}>
+                  <Checkbox
+                    checked={pickedMembers.includes(u.id)}
+                    onCheckedChange={() => setPickedMembers(p => p.includes(u.id) ? p.filter(x => x !== u.id) : [...p, u.id])}
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold">{u.name}</div>
+                    <div className="text-xs text-slate-500">@{u.username}</div>
+                  </div>
+                  <EyeOff className="h-3.5 w-3.5 text-slate-400" />
+                </label>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenAddMember(false)}>Batal</Button>
+            <Button onClick={submitAddMembers} data-testid="addmember-submit" className="bg-orange-500 hover:bg-orange-600">Tambahkan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

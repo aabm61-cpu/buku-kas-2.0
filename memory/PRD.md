@@ -39,6 +39,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Export CSV for tagihan, cashbook, team-payments
 - [x] Responsive layout with mobile hamburger sidebar
 - [x] Photo capture via camera or file upload, client-side JPEG compression
+- [x] History Lokasi rework (7 Feb 2026): sourced from CLOSED buku kas via `/api/bukukas/history`, shows project name + tanggal pekerjaan selesai (`closed_at`), sorted newest first, month filter (`data-testid=history-month-filter`)
 
 ## Backlog (P1)
 - [ ] PDF export (currently CSV only)
