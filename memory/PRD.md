@@ -46,6 +46,9 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Dropdown Termin Ada/Tidak Ada (8 Feb 2026): field `has_termin` terpisah (Ada/Tidak Ada). "Ada" → tampil select Jumlah Termin + tabel termin; "Tidak Ada" → tabel tersembunyi. Persisted di project meta.
 - [x] Dropdown Retensi Ada/Tidak Ada (8 Feb 2026): field `has_retensi` terpisah (default "ada"). "Ada" → baris Retensi tampil di tabel termin; "Tidak Ada" → baris tersembunyi DAN backend `POST /api/tagihan` + preview frontend tidak membuat tagihan retensi untuk proyek tsb.
 - [x] Form Tagihan Baru rework (8 Feb 2026): pilihan proyek dari PROYEK SELESAI (`is_completed`) beserta nominal. Proyek ber-termin → checkbox per termin (nominal = % × nilai proyek); proyek ber-retensi → checkbox Retensi opsional. Multi proyek & multi termin dalam 1 tagihan. Backend: TIDAK ada lagi auto-split invoice retensi (-RET); retensi kini item eksplisit (`is_retensi` di TagihanItem); saat tagihan lunas, proyek dengan item retensi otomatis `retention_paid=true`. Manual "Rincian Item" editor dihapus.
+- [x] Filter termin/retensi sudah ditagih (8 Feb 2026): termin & retensi yang sudah pernah masuk tagihan tidak muncul lagi di form Tagihan Baru (dihitung dari items semua tagihan: `termin_index`, `is_retensi`); proyek hilang dari daftar jika semua sudah ditagihkan.
+- [x] Hapus field Catatan di form Tagihan Baru, hapus tombol Export CSV, hapus aksi hapus tagihan (8 Feb 2026). Endpoint DELETE /api/tagihan tetap ada di backend (tidak diekspos di UI).
+- [x] Dashboard Penagihan (8 Feb 2026): countdown timer diganti daftar tagihan belum lunas (klien, nomor invoice, jatuh tempo dengan tanda merah bila lewat, nominal total), urut jatuh tempo terdekat — komponen `TagihanDueList` (data-testid `duelist-card`).
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)

@@ -3,13 +3,12 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Trash2, Download, Send, AlertTriangle, Wallet, Percent, Link2 } from "lucide-react";
+import { Plus, Send, AlertTriangle, Wallet, Percent, Link2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDate } from "@/lib/format";
 
@@ -18,7 +17,6 @@ const empty = () => ({
   client_name: "",
   selections: {}, // { [project_id]: { full: bool, termins: [idx], retensi: bool } }
   due_date: "",
-  notes: "",
 });
 
 const statusColor = {
@@ -52,12 +50,41 @@ export default function Tagihan() {
   const projHasTermin = (p) => p.has_termin === "ada" && Number(p.termin_count) > 0;
   const projHasRetensi = (p) => p.spk_rab_type === "SPK" && (p.has_retensi || "ada") === "ada" && Number(p.retention_percent) > 0 && !p.retention_paid;
 
+  // Rekap item yang SUDAH pernah ditagihkan per proyek (dari seluruh tagihan)
+  const billed = useMemo(() => {
+    const map = {}; // pid -> { termins: [idx], retensi: bool, full: bool }
+    items.forEach(t => {
+      (t.items || []).forEach(it => {
+        const pid = it.project_id;
+        if (!pid) return;
+        if (!map[pid]) map[pid] = { termins: [], retensi: false, full: false };
+        if (it.is_retensi) map[pid].retensi = true;
+        else if (it.termin_index !== null && it.termin_index !== undefined) map[pid].termins.push(it.termin_index);
+        else map[pid].full = true;
+      });
+    });
+    return map;
+  }, [items]);
+
+  const availableTermins = (p) => {
+    const b = billed[p.id];
+    return Array.from({ length: Number(p.termin_count) }, (_, i) => i).filter(i => !b?.termins.includes(i));
+  };
+  const retensiAvailable = (p) => projHasRetensi(p) && !billed[p.id]?.retensi;
+  const fullAvailable = (p) => !projHasTermin(p) && !billed[p.id]?.full;
+
+  // Proyek tampil hanya jika masih ada yang bisa ditagihkan
+  const billableProjects = useMemo(
+    () => completedProjects.filter(p => (projHasTermin(p) ? availableTermins(p).length > 0 : fullAvailable(p)) || retensiAvailable(p)),
+    [completedProjects, billed]
+  );
+
   const toggleProject = (p) => {
     const sel = { ...form.selections };
     if (sel[p.id]) {
       delete sel[p.id];
     } else {
-      sel[p.id] = { full: !projHasTermin(p), termins: [], retensi: false };
+      sel[p.id] = { full: fullAvailable(p), termins: [], retensi: false };
     }
     setForm({ ...form, selections: sel });
   };
@@ -111,7 +138,6 @@ export default function Tagihan() {
         client_name: form.client_name,
         items: lines,
         due_date: form.due_date,
-        notes: form.notes,
       });
       toast.success("Tagihan dibuat");
       setOpen(false); setForm(empty()); load();
@@ -130,22 +156,6 @@ export default function Tagihan() {
     setPayDialog(null); setPayAmount(0); load();
   };
 
-  const remove = async (id) => { if (!window.confirm("Hapus tagihan?")) return; await api.delete(`/tagihan/${id}`); load(); };
-
-  const exportCSV = () => {
-    const rows = [["Invoice", "Klien", "Proyek", "Tipe", "Total", "Terbayar", "Sisa", "Jatuh Tempo", "Status"]];
-    items.forEach(t => {
-      const pnames = (t.project_ids || (t.project_id ? [t.project_id] : [])).map(projName).join(", ");
-      rows.push([t.invoice_number, t.client_name, pnames, t.is_retensi ? "RETENSI" : "UTAMA", t.total, t.paid_amount, t.total - t.paid_amount, t.due_date, t.status]);
-    });
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `tagihan-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-  };
-
   const today = new Date().toISOString().slice(0, 10);
   const overdueCount = items.filter(t => t.due_date < today && t.paid_amount < t.total && t.status !== "lunas").length;
 
@@ -158,7 +168,6 @@ export default function Tagihan() {
           <p className="text-slate-500 mt-1">Satu tagihan dapat mencakup beberapa proyek. Retensi otomatis dipecah menjadi tagihan terpisah.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={exportCSV} data-testid="tagihan-export-btn" className="rounded-full"><Download className="h-4 w-4 mr-2" /> Export CSV</Button>
           {canWrite && (
             <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setForm(empty()); }}>
               <DialogTrigger asChild><Button data-testid="tagihan-add-btn" className="rounded-full bg-blue-700 hover:bg-blue-800"><Plus className="h-4 w-4 mr-2" /> Tagihan Baru</Button></DialogTrigger>
@@ -173,12 +182,13 @@ export default function Tagihan() {
                   <div>
                     <Label className="mb-2 block">Pilih Proyek Selesai (bisa lebih dari satu)</Label>
                     <div className="border border-slate-200 rounded-lg p-3 max-h-64 overflow-y-auto space-y-2 bg-slate-50">
-                      {completedProjects.length === 0 && <div className="text-sm text-slate-500">Belum ada proyek selesai.</div>}
-                      {completedProjects.map(p => {
+                      {billableProjects.length === 0 && <div className="text-sm text-slate-500">Tidak ada proyek selesai yang bisa ditagihkan.</div>}
+                      {billableProjects.map(p => {
                         const sel = form.selections[p.id];
                         const val = Number(p.project_value || 0);
                         const hasTermin = projHasTermin(p);
-                        const hasRet = projHasRetensi(p);
+                        const availTermins = hasTermin ? availableTermins(p) : [];
+                        const retAvail = retensiAvailable(p);
                         return (
                           <div key={p.id} className="rounded-lg bg-white border border-slate-200 p-2">
                             <label className="flex items-center gap-3 cursor-pointer p-1" data-testid={`tagihan-pick-project-${p.id}`}>
@@ -189,9 +199,9 @@ export default function Tagihan() {
                               </div>
                               <span className="text-sm font-mono tabular font-semibold text-slate-900 whitespace-nowrap">{formatIDR(val)}</span>
                             </label>
-                            {sel && hasTermin && (
+                            {sel && hasTermin && availTermins.length > 0 && (
                               <div className="pl-9 mt-1 space-y-1 border-t border-slate-100 pt-2">
-                                {Array.from({ length: Number(p.termin_count) }, (_, i) => {
+                                {availTermins.map(i => {
                                   const pct = Number((p.termin_percents || [])[i]) || 0;
                                   return (
                                     <label key={i} className="flex items-center gap-2.5 cursor-pointer text-sm" data-testid={`tagihan-termin-${p.id}-${i}`}>
@@ -203,7 +213,7 @@ export default function Tagihan() {
                                 })}
                               </div>
                             )}
-                            {sel && hasRet && (
+                            {sel && retAvail && (
                               <div className={`pl-9 mt-1 pt-2 ${hasTermin ? "" : "border-t border-slate-100"}`}>
                                 <label className="flex items-center gap-2.5 cursor-pointer text-sm" data-testid={`tagihan-retensi-${p.id}`}>
                                   <Checkbox checked={sel.retensi} onCheckedChange={() => toggleRetensi(p.id)} />
@@ -232,8 +242,6 @@ export default function Tagihan() {
                     ))}
                     <div className="border-t border-blue-200 pt-2 mt-2 flex justify-between font-display font-bold text-lg text-blue-900"><span>Total Tagihan</span><span className="font-mono tabular" data-testid="tagihan-total">{formatIDR(total)}</span></div>
                   </Card>
-
-                  <div><Label>Catatan</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
                 </div>
                 <DialogFooter><Button data-testid="tagihan-submit-btn" onClick={submit} className="bg-blue-700 hover:bg-blue-800">Simpan</Button></DialogFooter>
               </DialogContent>
@@ -291,7 +299,6 @@ export default function Tagihan() {
                   <TableCell className="text-right">
                     {canWrite && t.status === "draft" && <Button size="icon" variant="ghost" onClick={() => updateStatus(t, "terkirim")} title="Tandai terkirim"><Send className="h-4 w-4 text-blue-600" /></Button>}
                     {canWrite && t.paid_amount < t.total && <Button size="icon" variant="ghost" onClick={() => { setPayDialog(t); setPayAmount(t.total - t.paid_amount); }} title="Catat pembayaran" data-testid={`tagihan-pay-${t.id}`}><Wallet className="h-4 w-4 text-green-600" /></Button>}
-                    {canWrite && <Button size="icon" variant="ghost" onClick={() => remove(t.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>}
                   </TableCell>
                 </TableRow>
               );

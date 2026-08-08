@@ -5,7 +5,7 @@ import { formatIDR, roleLabel } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import {
   TrendingUp, TrendingDown, Wallet, MapPin, FolderKanban, Users as UsersIcon,
-  FileText, AlertTriangle, Coins, Timer, Clock, CheckCircle2,
+  FileText, AlertTriangle, Coins, Clock, CheckCircle2,
 } from "lucide-react";
 import QuickAddProject from "@/components/QuickAddProject";
 
@@ -23,40 +23,16 @@ const StatCard = ({ icon: Icon, label, value, color = "blue", testId }) => (
   </Card>
 );
 
-function useCountdown(targetIso) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (!targetIso) return null;
-  const diff = new Date(targetIso).getTime() - now;
-  const abs = Math.abs(diff);
-  const days = Math.floor(abs / 86400000);
-  const hours = Math.floor((abs % 86400000) / 3600000);
-  const mins = Math.floor((abs % 3600000) / 60000);
-  const secs = Math.floor((abs % 60000) / 1000);
-  return { diff, days, hours, mins, secs, overdue: diff < 0 };
-}
-
-function CountdownCard({ tagihan }) {
-  // Find nearest unpaid invoice (due date >= today) — else pick most overdue unpaid
-  const unpaid = tagihan.filter(t => (t.paid_amount || 0) < (t.total || 0) && t.due_date);
+function TagihanDueList({ tagihan }) {
+  const unpaid = tagihan
+    .filter(t => (t.paid_amount || 0) < (t.total || 0) && t.due_date)
+    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const upcoming = unpaid
-    .filter(t => new Date(t.due_date) >= today)
-    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
-  const overdue = unpaid
-    .filter(t => new Date(t.due_date) < today)
-    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
-  const target = upcoming || overdue;
-  const targetDate = target ? new Date(target.due_date + "T23:59:59").toISOString() : null;
-  const cd = useCountdown(targetDate);
 
-  if (!target) {
+  if (unpaid.length === 0) {
     return (
-      <Card className="p-6 bg-gradient-to-br from-emerald-600 to-green-700 text-white border-0 relative overflow-hidden" data-testid="countdown-empty">
-        <div className="relative z-10 flex items-start gap-4">
+      <Card className="p-6 bg-gradient-to-br from-emerald-600 to-green-700 text-white border-0" data-testid="duelist-empty">
+        <div className="flex items-start gap-4">
           <div className="h-11 w-11 rounded-lg bg-white/20 flex items-center justify-center"><CheckCircle2 className="h-5 w-5" /></div>
           <div>
             <div className="text-[10px] tracking-widest text-emerald-100">STATUS TAGIHAN</div>
@@ -68,50 +44,29 @@ function CountdownCard({ tagihan }) {
     );
   }
 
-  const bg = cd?.overdue
-    ? "from-red-600 to-rose-700"
-    : cd && cd.days < 3
-    ? "from-orange-500 to-red-600"
-    : "from-blue-700 to-indigo-800";
-
   return (
-    <Card className={`p-6 bg-gradient-to-br ${bg} text-white border-0 relative overflow-hidden`} data-testid="countdown-card">
-      <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-      <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
-            {cd?.overdue ? <AlertTriangle className="h-5 w-5" /> : <Timer className="h-5 w-5" />}
-          </div>
-          <div>
-            <div className="text-[10px] tracking-widest opacity-80">
-              {cd?.overdue ? "TERLAMBAT" : "WAKTU MUNDUR INVOICE"}
+    <Card className="bg-white border-slate-200 overflow-hidden" data-testid="duelist-card">
+      <div className="px-5 pt-4 pb-2 flex items-center gap-2">
+        <Clock className="h-4 w-4 text-orange-500" />
+        <div className="text-xs font-semibold tracking-widest text-slate-500">TAGIHAN BELUM LUNAS · URUT JATUH TEMPO</div>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {unpaid.map(t => {
+          const overdue = new Date(t.due_date) < today;
+          return (
+            <div key={t.id} className="px-5 py-3 flex items-center gap-3" data-testid={`duelist-row-${t.id}`}>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-slate-900 truncate">{t.client_name}</div>
+                <div className="text-xs text-slate-500 font-mono">{t.invoice_number}</div>
+              </div>
+              <div className={`text-sm whitespace-nowrap ${overdue ? "text-red-600 font-semibold" : "text-slate-600"}`}>
+                {overdue && <AlertTriangle className="h-3.5 w-3.5 inline mr-1" />}
+                {new Date(t.due_date).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+              </div>
+              <div className="w-36 text-right font-mono tabular font-bold text-slate-900 whitespace-nowrap">{formatIDR(t.total || 0)}</div>
             </div>
-            <div className="font-display font-bold text-lg">{target.invoice_number}</div>
-            <div className="text-xs opacity-90">{target.client_name}</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-4 gap-2 mt-4">
-          {[
-            { v: cd?.days ?? 0, l: "HARI" },
-            { v: cd?.hours ?? 0, l: "JAM" },
-            { v: cd?.mins ?? 0, l: "MENIT" },
-            { v: cd?.secs ?? 0, l: "DETIK" },
-          ].map((s, i) => (
-            <div key={i} className="bg-white/15 backdrop-blur rounded-lg py-3 text-center">
-              <div className="font-display font-extrabold text-3xl tabular" data-testid={`countdown-${s.l.toLowerCase()}`}>{String(s.v).padStart(2, "0")}</div>
-              <div className="text-[10px] tracking-widest opacity-80 mt-0.5">{s.l}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 flex items-center justify-between text-sm">
-          <div className="flex items-center gap-1.5 opacity-90">
-            <Clock className="h-3.5 w-3.5" />
-            {cd?.overdue ? "Sudah lewat jatuh tempo" : `Jatuh tempo ${new Date(target.due_date).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}`}
-          </div>
-          <div className="text-lg font-display font-bold tabular">{formatIDR((target.total || 0) - (target.paid_amount || 0))}</div>
-        </div>
+          );
+        })}
       </div>
     </Card>
   );
@@ -253,7 +208,7 @@ function PenagihanDashboard({ stats }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <CountdownCard tagihan={tagihan} />
+          <TagihanDueList tagihan={tagihan} />
         </div>
         <div className="space-y-4">
           <StatCard testId="stat-proyek-aktif" icon={FolderKanban} label="Proyek Aktif" value={activeProjects} color="blue" />
