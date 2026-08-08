@@ -108,7 +108,6 @@ function DetailDialog({ project, open, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">Klien</div><div className="font-semibold text-slate-900">{project.client_name || "-"}</div></div>
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">Tanggal Dibuat</div><div className="font-semibold text-slate-900">{project.created_at ? new Date(project.created_at).toLocaleDateString("id-ID") : "-"}</div></div>
-            <div><div className="text-xs text-slate-500 uppercase tracking-wider">Jumlah Pencatatan Buku Kas</div><div className="font-semibold text-slate-900">{project.cashbook_count || 0} entri</div></div>
             <div><div className="text-xs text-slate-500 uppercase tracking-wider">Buku Kas Ditutup</div><div className={`font-semibold ${project.cashbook_closed ? "text-green-700" : "text-slate-500"}`}>{project.cashbook_closed ? "Ya" : "Belum"}</div></div>
           </div>
 
