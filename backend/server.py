@@ -208,6 +208,8 @@ class TagihanItem(BaseModel):
     project_id: str
     description: str
     amount: float
+    is_retensi: bool = False
+    termin_index: Optional[int] = None
 
 class TagihanIn(BaseModel):
     invoice_number: str
@@ -754,39 +756,10 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
         raise HTTPException(400, "Minimal satu item diperlukan")
 
     project_ids = list({i.project_id for i in payload.items})
-    projects_map = {}
-    async for p in db.projects.find({"id": {"$in": project_ids}}):
-        projects_map[p["id"]] = p
-
-    # Group items by project
-    by_project = {}
-    for it in payload.items:
-        by_project.setdefault(it.project_id, []).append(it)
-
     subtotal = sum(i.amount for i in payload.items)
-
-    # Compute retensi lines for SPK projects with unpaid retensi.
-    # Retention percent is taken from each project's own retention_percent.
-    retensi_items = []
-    retensi_total = 0.0
-    retensi_project_ids = []
-    for pid, items in by_project.items():
-        proj = projects_map.get(pid, {})
-        if proj.get("spk_rab_type", "SPK") == "SPK" and not proj.get("retention_paid", False) and proj.get("has_retensi", "ada") != "tidak_ada":
-            pct = max(0.0, min(float(proj.get("retention_percent") or 0), 100.0))
-            proj_subtotal = sum(i.amount for i in items)
-            r_amount = round(proj_subtotal * (pct / 100.0), 2)
-            if r_amount > 0:
-                retensi_items.append({
-                    "project_id": pid,
-                    "description": f"Retensi {pct:g}% - {proj.get('name', '')}",
-                    "amount": r_amount,
-                })
-                retensi_total += r_amount
-                retensi_project_ids.append(pid)
+    retensi_total = sum(i.amount for i in payload.items if i.is_retensi)
 
     main_id = new_id()
-    main_total = subtotal - retensi_total
     main_doc = {
         "id": main_id,
         "project_ids": project_ids,
@@ -795,7 +768,7 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
         "items": [i.model_dump() for i in payload.items],
         "subtotal": subtotal,
         "retention_amount": retensi_total,
-        "total": main_total,
+        "total": subtotal,
         "paid_amount": 0,
         "due_date": payload.due_date,
         "status": "draft",
@@ -805,42 +778,12 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
         "created_by": user["id"],
     }
     await db.tagihan.insert_one(main_doc)
-    created = [clean_doc(main_doc)]
 
+    detail = f"Tagihan {payload.invoice_number} Rp{subtotal:,.0f}"
     if retensi_total > 0:
-        # Retensi due date = main due date + 90 days
-        try:
-            d = datetime.fromisoformat(payload.due_date)
-        except Exception:
-            d = datetime.now(timezone.utc)
-        r_due = (d + timedelta(days=90)).date().isoformat()
-
-        r_doc = {
-            "id": new_id(),
-            "project_ids": retensi_project_ids,
-            "invoice_number": f"{payload.invoice_number}-RET",
-            "client_name": payload.client_name,
-            "items": retensi_items,
-            "subtotal": retensi_total,
-            "retention_amount": 0,
-            "total": retensi_total,
-            "paid_amount": 0,
-            "due_date": r_due,
-            "status": "draft",
-            "is_retensi": True,
-            "parent_tagihan_id": main_id,
-            "notes": f"Retensi otomatis untuk invoice {payload.invoice_number}",
-            "created_at": now_iso(),
-            "created_by": user["id"],
-        }
-        await db.tagihan.insert_one(r_doc)
-        created.append(clean_doc(r_doc))
-
-    detail = f"Tagihan {payload.invoice_number} Rp{main_total:,.0f}"
-    if retensi_total > 0:
-        detail += f" + Retensi Rp{retensi_total:,.0f} ({len(retensi_project_ids)} proyek SPK)"
+        detail += f" (termasuk retensi Rp{retensi_total:,.0f})"
     await log_activity(user, "create", "tagihan", main_id, detail)
-    return created
+    return [clean_doc(main_doc)]
 
 @api.patch("/tagihan/{tid}")
 async def update_tagihan(tid: str, payload: TagihanUpdate, user=Depends(require_role("owner", "penagihan"))):
@@ -852,10 +795,16 @@ async def update_tagihan(tid: str, payload: TagihanUpdate, user=Depends(require_
         update["status"] = "lunas"
     await db.tagihan.update_one({"id": tid}, {"$set": update})
 
-    # If a retensi invoice is fully paid, mark related projects' retention_paid=True
+    # When invoice fully paid, mark retention_paid for projects billed via retensi
     new_t = await db.tagihan.find_one({"id": tid})
-    if new_t.get("is_retensi") and new_t.get("paid_amount", 0) >= new_t.get("total", 0):
-        for pid in new_t.get("project_ids", []):
+    if new_t.get("paid_amount", 0) >= new_t.get("total", 0):
+        retensi_pids = set()
+        if new_t.get("is_retensi"):
+            retensi_pids.update(new_t.get("project_ids", []))
+        for it in new_t.get("items", []):
+            if it.get("is_retensi"):
+                retensi_pids.add(it.get("project_id"))
+        for pid in retensi_pids:
             await db.projects.update_one({"id": pid}, {"$set": {"retention_paid": True}})
 
     await log_activity(user, "update", "tagihan", tid, str(update))

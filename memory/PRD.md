@@ -45,6 +45,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Termin SPK (8 Feb 2026): jika SPK dipilih, muncul select Termin (1/2/3). Tabel termin (Presentase manual + Nilai otomatis dari % × nilai proyek) + baris Retensi di bawah (terikat ke `retention_percent`). Disimpan via `termin_count` & `termin_percents` di `PATCH /api/projects/{id}/meta`.
 - [x] Dropdown Termin Ada/Tidak Ada (8 Feb 2026): field `has_termin` terpisah (Ada/Tidak Ada). "Ada" → tampil select Jumlah Termin + tabel termin; "Tidak Ada" → tabel tersembunyi. Persisted di project meta.
 - [x] Dropdown Retensi Ada/Tidak Ada (8 Feb 2026): field `has_retensi` terpisah (default "ada"). "Ada" → baris Retensi tampil di tabel termin; "Tidak Ada" → baris tersembunyi DAN backend `POST /api/tagihan` + preview frontend tidak membuat tagihan retensi untuk proyek tsb.
+- [x] Form Tagihan Baru rework (8 Feb 2026): pilihan proyek dari PROYEK SELESAI (`is_completed`) beserta nominal. Proyek ber-termin → checkbox per termin (nominal = % × nilai proyek); proyek ber-retensi → checkbox Retensi opsional. Multi proyek & multi termin dalam 1 tagihan. Backend: TIDAK ada lagi auto-split invoice retensi (-RET); retensi kini item eksplisit (`is_retensi` di TagihanItem); saat tagihan lunas, proyek dengan item retensi otomatis `retention_paid=true`. Manual "Rincian Item" editor dihapus.
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)

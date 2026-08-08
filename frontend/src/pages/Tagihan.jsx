@@ -7,19 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Plus, Trash2, Download, Send, AlertTriangle, Wallet, Percent, Link2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDate } from "@/lib/format";
 
-const emptyItem = (project_id = "") => ({ project_id, description: "", amount: 0 });
 const empty = () => ({
   invoice_number: "",
   client_name: "",
-  selected_projects: [],
-  items: [emptyItem()],
+  selections: {}, // { [project_id]: { full: bool, termins: [idx], retensi: bool } }
   due_date: "",
   notes: "",
 });
@@ -49,63 +46,74 @@ export default function Tagihan() {
 
   const projName = (id) => projects.find(p => p.id === id)?.name || id;
 
-  // Retensi preview — persentase diambil dari data proyek masing-masing (khusus SPK)
-  const retensiPreview = useMemo(() => {
-    const byProject = {};
-    form.items.forEach(it => {
-      if (!it.project_id) return;
-      byProject[it.project_id] = (byProject[it.project_id] || 0) + Number(it.amount || 0);
-    });
-    const lines = [];
-    let total = 0;
-    Object.entries(byProject).forEach(([pid, subtotal]) => {
+  // Proyek selesai sebagai sumber pilihan tagihan
+  const completedProjects = useMemo(() => projects.filter(p => p.is_completed), [projects]);
+
+  const projHasTermin = (p) => p.has_termin === "ada" && Number(p.termin_count) > 0;
+  const projHasRetensi = (p) => p.spk_rab_type === "SPK" && (p.has_retensi || "ada") === "ada" && Number(p.retention_percent) > 0 && !p.retention_paid;
+
+  const toggleProject = (p) => {
+    const sel = { ...form.selections };
+    if (sel[p.id]) {
+      delete sel[p.id];
+    } else {
+      sel[p.id] = { full: !projHasTermin(p), termins: [], retensi: false };
+    }
+    setForm({ ...form, selections: sel });
+  };
+
+  const toggleTermin = (pid, idx) => {
+    const sel = { ...form.selections };
+    const s = { ...sel[pid] };
+    s.termins = s.termins.includes(idx) ? s.termins.filter(x => x !== idx) : [...s.termins, idx].sort();
+    sel[pid] = s;
+    setForm({ ...form, selections: sel });
+  };
+
+  const toggleRetensi = (pid) => {
+    const sel = { ...form.selections };
+    sel[pid] = { ...sel[pid], retensi: !sel[pid].retensi };
+    setForm({ ...form, selections: sel });
+  };
+
+  // Susun item tagihan dari pilihan
+  const lines = useMemo(() => {
+    const out = [];
+    Object.entries(form.selections).forEach(([pid, s]) => {
       const p = projects.find(x => x.id === pid);
-      if (p?.spk_rab_type === "SPK" && !p?.retention_paid && (p?.has_retensi || "ada") !== "tidak_ada") {
-        const pct = Number(p.retention_percent || 0);
-        const amt = subtotal * (pct / 100);
-        if (amt > 0) {
-          lines.push({ projectName: p.name, subtotal, amount: amt, pct });
-          total += amt;
-        }
+      if (!p) return;
+      const val = Number(p.project_value || 0);
+      if (s.full) {
+        out.push({ project_id: pid, description: `Nilai Proyek - ${p.name}`, amount: val });
+      }
+      (s.termins || []).forEach(i => {
+        const pct = Number((p.termin_percents || [])[i]) || 0;
+        out.push({ project_id: pid, description: `Termin ${i + 1} (${pct}%) - ${p.name}`, amount: val * pct / 100, termin_index: i });
+      });
+      if (s.retensi) {
+        const rpct = Number(p.retention_percent || 0);
+        out.push({ project_id: pid, description: `Retensi (${rpct}%) - ${p.name}`, amount: val * rpct / 100, is_retensi: true });
       }
     });
-    return { lines, total };
-  }, [form.items, projects]);
+    return out;
+  }, [form.selections, projects]);
 
-  const subtotal = form.items.reduce((s, i) => s + Number(i.amount || 0), 0);
-  const mainTotal = subtotal - retensiPreview.total;
-
-  const toggleProject = (pid) => {
-    const on = form.selected_projects.includes(pid);
-    let sp = on ? form.selected_projects.filter(x => x !== pid) : [...form.selected_projects, pid];
-    // remove items belonging to unselected project
-    let newItems = on ? form.items.filter(i => i.project_id !== pid) : form.items;
-    if (!on && newItems.length === 1 && !newItems[0].project_id) {
-      newItems = [{ ...newItems[0], project_id: pid }];
-    }
-    if (newItems.length === 0) newItems = [emptyItem(sp[0] || "")];
-    setForm({ ...form, selected_projects: sp, items: newItems });
-  };
+  const total = lines.reduce((s, l) => s + l.amount, 0);
 
   const submit = async () => {
     if (!form.invoice_number.trim() || !form.client_name.trim() || !form.due_date) {
       toast.error("Nomor invoice, klien, dan jatuh tempo wajib diisi"); return;
     }
-    const validItems = form.items.filter(i => i.project_id && Number(i.amount) > 0);
-    if (validItems.length === 0) { toast.error("Minimal satu item dengan proyek & jumlah"); return; }
+    if (lines.length === 0) { toast.error("Pilih minimal satu proyek, termin, atau retensi"); return; }
     try {
-      const res = await api.post("/tagihan", {
+      await api.post("/tagihan", {
         invoice_number: form.invoice_number,
         client_name: form.client_name,
-        items: validItems.map(i => ({ project_id: i.project_id, description: i.description, amount: Number(i.amount) })),
+        items: lines,
         due_date: form.due_date,
         notes: form.notes,
       });
-      if (Array.isArray(res.data) && res.data.length > 1) {
-        toast.success(`Tagihan utama & tagihan retensi dibuat (${res.data.length} invoice)`);
-      } else {
-        toast.success("Tagihan dibuat");
-      }
+      toast.success("Tagihan dibuat");
       setOpen(false); setForm(empty()); load();
     } catch (e) { toast.error(e.response?.data?.detail || "Gagal"); }
   };
@@ -163,68 +171,66 @@ export default function Tagihan() {
                   </div>
 
                   <div>
-                    <Label className="mb-2 block">Pilih Proyek (bisa lebih dari satu)</Label>
-                    <div className="border border-slate-200 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2 bg-slate-50">
-                      {projects.length === 0 && <div className="text-sm text-slate-500">Belum ada proyek.</div>}
-                      {projects.map(p => (
-                        <label key={p.id} className="flex items-center gap-3 cursor-pointer p-1.5 rounded hover:bg-white" data-testid={`tagihan-pick-project-${p.id}`}>
-                          <Checkbox checked={form.selected_projects.includes(p.id)} onCheckedChange={() => toggleProject(p.id)} />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-slate-900">{p.name}</div>
-                            <div className="text-xs text-slate-500">{p.work_type} · {p.spk_rab_type || "SPK"}{(p.spk_rab_type || "SPK") === "SPK" ? ` · Retensi: ${p.retention_percent || 0}%` : ""}</div>
+                    <Label className="mb-2 block">Pilih Proyek Selesai (bisa lebih dari satu)</Label>
+                    <div className="border border-slate-200 rounded-lg p-3 max-h-64 overflow-y-auto space-y-2 bg-slate-50">
+                      {completedProjects.length === 0 && <div className="text-sm text-slate-500">Belum ada proyek selesai.</div>}
+                      {completedProjects.map(p => {
+                        const sel = form.selections[p.id];
+                        const val = Number(p.project_value || 0);
+                        const hasTermin = projHasTermin(p);
+                        const hasRet = projHasRetensi(p);
+                        return (
+                          <div key={p.id} className="rounded-lg bg-white border border-slate-200 p-2">
+                            <label className="flex items-center gap-3 cursor-pointer p-1" data-testid={`tagihan-pick-project-${p.id}`}>
+                              <Checkbox checked={!!sel} onCheckedChange={() => toggleProject(p)} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-semibold text-slate-900">{p.name}</div>
+                                <div className="text-xs text-slate-500">{p.work_type} · {p.spk_rab_type || "SPK"}{hasTermin ? ` · ${p.termin_count} termin` : ""}</div>
+                              </div>
+                              <span className="text-sm font-mono tabular font-semibold text-slate-900 whitespace-nowrap">{formatIDR(val)}</span>
+                            </label>
+                            {sel && hasTermin && (
+                              <div className="pl-9 mt-1 space-y-1 border-t border-slate-100 pt-2">
+                                {Array.from({ length: Number(p.termin_count) }, (_, i) => {
+                                  const pct = Number((p.termin_percents || [])[i]) || 0;
+                                  return (
+                                    <label key={i} className="flex items-center gap-2.5 cursor-pointer text-sm" data-testid={`tagihan-termin-${p.id}-${i}`}>
+                                      <Checkbox checked={sel.termins.includes(i)} onCheckedChange={() => toggleTermin(p.id, i)} />
+                                      <span className="flex-1 text-slate-700">Termin {i + 1} <span className="text-slate-400">({pct}%)</span></span>
+                                      <span className="font-mono tabular font-semibold">{formatIDR(val * pct / 100)}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {sel && hasRet && (
+                              <div className={`pl-9 mt-1 pt-2 ${hasTermin ? "" : "border-t border-slate-100"}`}>
+                                <label className="flex items-center gap-2.5 cursor-pointer text-sm" data-testid={`tagihan-retensi-${p.id}`}>
+                                  <Checkbox checked={sel.retensi} onCheckedChange={() => toggleRetensi(p.id)} />
+                                  <span className="flex-1 text-orange-700 font-medium flex items-center gap-1"><Percent className="h-3.5 w-3.5" /> Retensi <span className="text-orange-400">({p.retention_percent}%)</span></span>
+                                  <span className="font-mono tabular font-semibold text-orange-700">{formatIDR(val * Number(p.retention_percent) / 100)}</span>
+                                </label>
+                              </div>
+                            )}
                           </div>
-                          {p.spk_rab_type === "SPK" && !p.retention_paid && (p.has_retensi || "ada") !== "tidak_ada" && (Number(p.retention_percent) > 0) && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 whitespace-nowrap"><Percent className="h-3 w-3 inline mr-1" />Retensi aktif</span>
-                          )}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label>Rincian Item</Label>
-                      <Button type="button" size="sm" variant="outline" onClick={() => setForm({ ...form, items: [...form.items, emptyItem(form.selected_projects[0] || "")] })} data-testid="tagihan-add-item-btn"><Plus className="h-3.5 w-3.5 mr-1" /> Tambah Item</Button>
-                    </div>
-                    <div className="space-y-2">
-                      {form.items.map((it, i) => (
-                        <div key={i} className="flex gap-2">
-                          <Select value={it.project_id} onValueChange={(v) => { const arr = [...form.items]; arr[i].project_id = v; setForm({ ...form, items: arr }); }}>
-                            <SelectTrigger className="w-44" data-testid={`tagihan-item-project-${i}`}><SelectValue placeholder="Proyek" /></SelectTrigger>
-                            <SelectContent className="bg-white">
-                              {(form.selected_projects.length ? projects.filter(p => form.selected_projects.includes(p.id)) : projects).map(p => (
-                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Input placeholder="Deskripsi" value={it.description} onChange={e => { const arr = [...form.items]; arr[i].description = e.target.value; setForm({ ...form, items: arr }); }} className="flex-1" data-testid={`tagihan-item-desc-${i}`} />
-                          <Input type="number" placeholder="Jumlah" value={it.amount} onChange={e => { const arr = [...form.items]; arr[i].amount = e.target.value; setForm({ ...form, items: arr }); }} className="w-40" data-testid={`tagihan-item-amount-${i}`} />
-                          <Button type="button" variant="ghost" size="icon" onClick={() => setForm({ ...form, items: form.items.filter((_, x) => x !== i) })}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Jatuh Tempo Utama</Label><Input data-testid="tagihan-due-input" type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} /></div>
+                    <div><Label>Jatuh Tempo</Label><Input data-testid="tagihan-due-input" type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} /></div>
                   </div>
 
-                  <Card className="p-4 bg-blue-50 border-blue-200 space-y-1">
-                    <div className="flex justify-between text-sm"><span className="text-slate-600">Subtotal Item</span><span className="font-mono tabular font-semibold">{formatIDR(subtotal)}</span></div>
-                    {retensiPreview.total > 0 && (
-                      <>
-                        <div className="flex justify-between text-sm text-orange-700"><span className="flex items-center gap-1"><Percent className="h-3.5 w-3.5" /> Dipotong Retensi (sesuai % proyek)</span><span className="font-mono tabular font-semibold">- {formatIDR(retensiPreview.total)}</span></div>
-                        <div className="text-xs text-slate-500 pl-4">
-                          {retensiPreview.lines.map((l, i) => <div key={i}>• {l.projectName} ({l.pct}%): {formatIDR(l.amount)}</div>)}
-                        </div>
-                      </>
-                    )}
-                    <div className="border-t border-blue-200 pt-2 mt-2 flex justify-between font-display font-bold text-lg text-blue-900"><span>Total Invoice Utama</span><span className="font-mono tabular">{formatIDR(mainTotal)}</span></div>
-                    {retensiPreview.total > 0 && (
-                      <div className="mt-1 text-xs bg-orange-100 border border-orange-200 rounded px-2 py-1.5 text-orange-800">
-                        + Sistem akan otomatis membuat <strong>tagihan retensi terpisah</strong> sebesar {formatIDR(retensiPreview.total)} (jatuh tempo +90 hari)
+                  <Card className="p-4 bg-blue-50 border-blue-200 space-y-1" data-testid="tagihan-summary">
+                    {lines.length === 0 && <div className="text-sm text-slate-500">Belum ada item dipilih.</div>}
+                    {lines.map((l, i) => (
+                      <div key={i} className={`flex justify-between text-sm ${l.is_retensi ? "text-orange-700" : "text-slate-700"}`}>
+                        <span>{l.description}</span>
+                        <span className="font-mono tabular font-semibold">{formatIDR(l.amount)}</span>
                       </div>
-                    )}
+                    ))}
+                    <div className="border-t border-blue-200 pt-2 mt-2 flex justify-between font-display font-bold text-lg text-blue-900"><span>Total Tagihan</span><span className="font-mono tabular" data-testid="tagihan-total">{formatIDR(total)}</span></div>
                   </Card>
 
                   <div><Label>Catatan</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
