@@ -47,6 +47,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
   const retPct = Number(form.retention_percent || 0);
   const retValue = projValue * retPct / 100;
   const isSPK = (form.spk_rab_type || "SPK") === "SPK";
+  const hasTermin = form.has_termin === "ada";
   const terminCount = Number(form.termin_count || 0);
   const terminPercents = form.termin_percents || [];
 
@@ -69,6 +70,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
         penagihan_status: form.penagihan_status,
         project_value: Number(form.project_value) || 0,
         retention_percent: Number(form.retention_percent) || 0,
+        has_termin: form.has_termin || "tidak_ada",
         termin_count: Number(form.termin_count) || 0,
         termin_percents: (form.termin_percents || []).map(v => Number(v) || 0),
         keterangan: form.keterangan || "",
@@ -128,7 +130,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className={`grid gap-4 ${isSPK ? "grid-cols-2" : "grid-cols-1"}`}>
+          <div className={`grid gap-4 ${isSPK ? (hasTermin ? "grid-cols-3" : "grid-cols-2") : "grid-cols-1"}`}>
             <div>
               <Label>Nilai Proyek (Rp)</Label>
               <Input data-testid="detail-value" type="number" value={form.project_value ?? 0} onChange={e => setForm({ ...form, project_value: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
@@ -137,6 +139,18 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             {isSPK && (
               <div>
                 <Label>Termin</Label>
+                <Select value={form.has_termin || "tidak_ada"} onValueChange={v => setForm({ ...form, has_termin: v })}>
+                  <SelectTrigger data-testid="detail-has-termin" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="ada">Ada</SelectItem>
+                    <SelectItem value="tidak_ada">Tidak Ada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {isSPK && hasTermin && (
+              <div>
+                <Label>Jumlah Termin</Label>
                 <Select value={terminCount ? String(terminCount) : ""} onValueChange={setTerminCount}>
                   <SelectTrigger data-testid="detail-termin-count" className="h-11 mt-1.5"><SelectValue placeholder="Pilih jumlah termin" /></SelectTrigger>
                   <SelectContent className="bg-white">
@@ -147,7 +161,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             )}
           </div>
 
-          {isSPK && terminCount > 0 && (
+          {isSPK && hasTermin && terminCount > 0 && (
             <div className="border border-slate-200 rounded-lg overflow-hidden" data-testid="detail-termin-table">
               <Table>
                 <TableHeader>

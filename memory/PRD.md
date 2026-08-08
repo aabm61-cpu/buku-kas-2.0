@@ -43,6 +43,8 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] SPK/RAB retensi rework (8 Feb 2026): Retensi fields in project detail dialog hidden when RAB, visible when SPK. Tagihan Baru form no longer has retensi %, retensi due date fields. Backend `POST /api/tagihan` uses each project's own `retention_percent` (SPK only) to auto-split into 2 invoices (main + `-RET`, due +90 days). RAB projects never generate retensi invoice.
 - [x] Detail proyek: posisi kolom Penagihan & SPK/RAB ditukar (8 Feb 2026) — Penagihan kiri, SPK/RAB kanan
 - [x] Termin SPK (8 Feb 2026): jika SPK dipilih, muncul select Termin (1/2/3). Tabel termin (Presentase manual + Nilai otomatis dari % × nilai proyek) + baris Retensi di bawah (terikat ke `retention_percent`). Disimpan via `termin_count` & `termin_percents` di `PATCH /api/projects/{id}/meta`.
+- [x] Dropdown Termin Ada/Tidak Ada (8 Feb 2026): field `has_termin` terpisah (Ada/Tidak Ada). "Ada" → tampil select Jumlah Termin + tabel termin; "Tidak Ada" → tabel tersembunyi. Persisted di project meta.
+- [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)
 - [ ] PDF export (currently CSV only)
