@@ -98,17 +98,17 @@ function DetailDialog({ project, open, onClose, onSaved }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>SPK / RAB</Label>
-              <Select value={form.spk_rab_type || "SPK"} onValueChange={v => setForm({ ...form, spk_rab_type: v })}>
-                <SelectTrigger data-testid="detail-spk-rab" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-white">{SPK_RAB_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
               <Label>Penagihan</Label>
               <Select value={form.penagihan_status || "belum_dibuat"} onValueChange={v => setForm({ ...form, penagihan_status: v })}>
                 <SelectTrigger data-testid="detail-penagihan" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-white">{PENAGIHAN_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>SPK / RAB</Label>
+              <Select value={form.spk_rab_type || "SPK"} onValueChange={v => setForm({ ...form, spk_rab_type: v })}>
+                <SelectTrigger data-testid="detail-spk-rab" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-white">{SPK_RAB_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>

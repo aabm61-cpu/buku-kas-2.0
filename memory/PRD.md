@@ -41,6 +41,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Photo capture via camera or file upload, client-side JPEG compression
 - [x] History Lokasi rework (7 Feb 2026): sourced from CLOSED buku kas via `/api/bukukas/history`, shows project name + tanggal pekerjaan selesai (`closed_at`), sorted newest first, month filter (`data-testid=history-month-filter`)
 - [x] SPK/RAB retensi rework (8 Feb 2026): Retensi fields in project detail dialog hidden when RAB, visible when SPK. Tagihan Baru form no longer has retensi %, retensi due date fields. Backend `POST /api/tagihan` uses each project's own `retention_percent` (SPK only) to auto-split into 2 invoices (main + `-RET`, due +90 days). RAB projects never generate retensi invoice.
+- [x] Detail proyek: posisi kolom Penagihan & SPK/RAB ditukar (8 Feb 2026) — Penagihan kiri, SPK/RAB kanan
 
 ## Backlog (P1)
 - [ ] PDF export (currently CSV only)
