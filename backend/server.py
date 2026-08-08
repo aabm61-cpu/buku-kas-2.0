@@ -154,6 +154,8 @@ class ProjectMeta(BaseModel):
     maintenance_notes: Optional[str] = None
     retention_percent: Optional[float] = None
     retention_paid: Optional[bool] = None
+    termin_count: Optional[int] = None
+    termin_percents: Optional[List[float]] = None
     cashbook_closed: Optional[bool] = None
     is_completed: Optional[bool] = None
     keterangan: Optional[str] = None

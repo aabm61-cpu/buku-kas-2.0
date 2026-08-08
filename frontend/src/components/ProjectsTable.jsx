@@ -47,6 +47,20 @@ function DetailDialog({ project, open, onClose, onSaved }) {
   const retPct = Number(form.retention_percent || 0);
   const retValue = projValue * retPct / 100;
   const isSPK = (form.spk_rab_type || "SPK") === "SPK";
+  const terminCount = Number(form.termin_count || 0);
+  const terminPercents = form.termin_percents || [];
+
+  const setTerminCount = (v) => {
+    const n = Number(v);
+    const arr = Array.from({ length: n }, (_, i) => Number(terminPercents[i]) || 0);
+    setForm({ ...form, termin_count: n, termin_percents: arr });
+  };
+
+  const setTerminPct = (i, val) => {
+    const arr = [...terminPercents];
+    arr[i] = val;
+    setForm({ ...form, termin_percents: arr });
+  };
 
   const save = async () => {
     try {
@@ -55,6 +69,8 @@ function DetailDialog({ project, open, onClose, onSaved }) {
         penagihan_status: form.penagihan_status,
         project_value: Number(form.project_value) || 0,
         retention_percent: Number(form.retention_percent) || 0,
+        termin_count: Number(form.termin_count) || 0,
+        termin_percents: (form.termin_percents || []).map(v => Number(v) || 0),
         keterangan: form.keterangan || "",
         end_date: form.end_date || null,
       });
@@ -113,28 +129,64 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className={`grid gap-4 ${isSPK ? "grid-cols-3" : "grid-cols-1"}`}>
+          <div className={`grid gap-4 ${isSPK ? "grid-cols-2" : "grid-cols-1"}`}>
             <div>
               <Label>Nilai Proyek (Rp)</Label>
               <Input data-testid="detail-value" type="number" value={form.project_value ?? 0} onChange={e => setForm({ ...form, project_value: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
               {projValue > 0 && <div className="text-xs text-slate-500 mt-1 font-mono">{formatIDR(projValue)}</div>}
             </div>
             {isSPK && (
-              <>
-                <div>
-                  <Label>Retensi (%)</Label>
-                  <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
-                </div>
-                <div>
-                  <Label>Nilai Retensi</Label>
-                  <div className="h-11 mt-1.5 flex items-center justify-between px-3 rounded-md bg-slate-50 border border-slate-200">
-                    <span className="font-mono tabular font-semibold text-orange-700">{formatIDR(retValue)}</span>
-                    {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" title="Retensi sudah dibayar" />}
-                  </div>
-                </div>
-              </>
+              <div>
+                <Label>Termin</Label>
+                <Select value={terminCount ? String(terminCount) : ""} onValueChange={setTerminCount}>
+                  <SelectTrigger data-testid="detail-termin-count" className="h-11 mt-1.5"><SelectValue placeholder="Pilih jumlah termin" /></SelectTrigger>
+                  <SelectContent className="bg-white">
+                    {[1, 2, 3].map(n => <SelectItem key={n} value={String(n)}>{n} Termin</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
           </div>
+
+          {isSPK && terminCount > 0 && (
+            <div className="border border-slate-200 rounded-lg overflow-hidden" data-testid="detail-termin-table">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Tahap</TableHead>
+                    <TableHead className="w-36">Presentase (%)</TableHead>
+                    <TableHead className="text-right">Nilai</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from({ length: terminCount }, (_, i) => {
+                    const pct = Number(terminPercents[i]) || 0;
+                    return (
+                      <TableRow key={i}>
+                        <TableCell className="font-semibold">Termin {i + 1}</TableCell>
+                        <TableCell>
+                          <Input data-testid={`detail-termin-pct-${i}`} type="number" step="0.5" min="0" max="100" value={terminPercents[i] ?? 0} onChange={e => setTerminPct(i, e.target.value)} className="h-9 font-mono tabular" />
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular font-semibold" data-testid={`detail-termin-nilai-${i}`}>{formatIDR(projValue * pct / 100)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  <TableRow className="bg-orange-50/50">
+                    <TableCell className="font-semibold text-orange-800">Retensi</TableCell>
+                    <TableCell>
+                      <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-9 font-mono tabular" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="inline-flex items-center gap-2 font-mono tabular font-semibold text-orange-700" data-testid="detail-retensi-nilai">
+                        {formatIDR(retValue)}
+                        {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" title="Retensi sudah dibayar" />}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
           <div>
             <Label>Keterangan</Label>
