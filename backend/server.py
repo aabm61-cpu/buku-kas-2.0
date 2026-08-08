@@ -210,8 +210,6 @@ class TagihanIn(BaseModel):
     client_name: str
     items: List[TagihanItem]
     due_date: str
-    retention_percent: float = 5.0
-    retensi_due_date: Optional[str] = None
     notes: Optional[str] = ""
 
 class TagihanUpdate(BaseModel):
@@ -763,14 +761,15 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
 
     subtotal = sum(i.amount for i in payload.items)
 
-    # Compute retensi lines for SPK projects with unpaid retensi
+    # Compute retensi lines for SPK projects with unpaid retensi.
+    # Retention percent is taken from each project's own retention_percent.
     retensi_items = []
     retensi_total = 0.0
     retensi_project_ids = []
-    pct = max(0.0, min(payload.retention_percent, 100.0))
     for pid, items in by_project.items():
         proj = projects_map.get(pid, {})
         if proj.get("spk_rab_type", "SPK") == "SPK" and not proj.get("retention_paid", False):
+            pct = max(0.0, min(float(proj.get("retention_percent") or 0), 100.0))
             proj_subtotal = sum(i.amount for i in items)
             r_amount = round(proj_subtotal * (pct / 100.0), 2)
             if r_amount > 0:
@@ -792,7 +791,6 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
         "items": [i.model_dump() for i in payload.items],
         "subtotal": subtotal,
         "retention_amount": retensi_total,
-        "retention_percent": pct,
         "total": main_total,
         "paid_amount": 0,
         "due_date": payload.due_date,
@@ -806,15 +804,12 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
     created = [clean_doc(main_doc)]
 
     if retensi_total > 0:
-        # Compute retensi due date (payload override, or main.due_date + 90 days)
-        if payload.retensi_due_date:
-            r_due = payload.retensi_due_date
-        else:
-            try:
-                d = datetime.fromisoformat(payload.due_date)
-            except Exception:
-                d = datetime.now(timezone.utc)
-            r_due = (d + timedelta(days=90)).date().isoformat()
+        # Retensi due date = main due date + 90 days
+        try:
+            d = datetime.fromisoformat(payload.due_date)
+        except Exception:
+            d = datetime.now(timezone.utc)
+        r_due = (d + timedelta(days=90)).date().isoformat()
 
         r_doc = {
             "id": new_id(),
@@ -824,7 +819,6 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
             "items": retensi_items,
             "subtotal": retensi_total,
             "retention_amount": 0,
-            "retention_percent": 0,
             "total": retensi_total,
             "paid_amount": 0,
             "due_date": r_due,

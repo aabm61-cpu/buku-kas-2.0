@@ -21,8 +21,6 @@ const empty = () => ({
   selected_projects: [],
   items: [emptyItem()],
   due_date: "",
-  retention_percent: 5,
-  retensi_due_date: "",
   notes: "",
 });
 
@@ -51,7 +49,7 @@ export default function Tagihan() {
 
   const projName = (id) => projects.find(p => p.id === id)?.name || id;
 
-  // Retensi preview
+  // Retensi preview — persentase diambil dari data proyek masing-masing (khusus SPK)
   const retensiPreview = useMemo(() => {
     const byProject = {};
     form.items.forEach(it => {
@@ -63,15 +61,16 @@ export default function Tagihan() {
     Object.entries(byProject).forEach(([pid, subtotal]) => {
       const p = projects.find(x => x.id === pid);
       if (p?.spk_rab_type === "SPK" && !p?.retention_paid) {
-        const amt = subtotal * (Number(form.retention_percent || 0) / 100);
+        const pct = Number(p.retention_percent || 0);
+        const amt = subtotal * (pct / 100);
         if (amt > 0) {
-          lines.push({ projectName: p.name, subtotal, amount: amt });
+          lines.push({ projectName: p.name, subtotal, amount: amt, pct });
           total += amt;
         }
       }
     });
     return { lines, total };
-  }, [form.items, form.retention_percent, projects]);
+  }, [form.items, projects]);
 
   const subtotal = form.items.reduce((s, i) => s + Number(i.amount || 0), 0);
   const mainTotal = subtotal - retensiPreview.total;
@@ -100,8 +99,6 @@ export default function Tagihan() {
         client_name: form.client_name,
         items: validItems.map(i => ({ project_id: i.project_id, description: i.description, amount: Number(i.amount) })),
         due_date: form.due_date,
-        retention_percent: Number(form.retention_percent),
-        retensi_due_date: form.retensi_due_date || null,
         notes: form.notes,
       });
       if (Array.isArray(res.data) && res.data.length > 1) {
@@ -174,7 +171,7 @@ export default function Tagihan() {
                           <Checkbox checked={form.selected_projects.includes(p.id)} onCheckedChange={() => toggleProject(p.id)} />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-slate-900">{p.name}</div>
-                            <div className="text-xs text-slate-500">{p.work_type} · {p.spk_rab_type || "SPK"} · Retensi: {p.retention_percent || 0}%</div>
+                            <div className="text-xs text-slate-500">{p.work_type} · {p.spk_rab_type || "SPK"}{(p.spk_rab_type || "SPK") === "SPK" ? ` · Retensi: ${p.retention_percent || 0}%` : ""}</div>
                           </div>
                           {p.spk_rab_type === "SPK" && !p.retention_paid && (Number(p.retention_percent) > 0) && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 whitespace-nowrap"><Percent className="h-3 w-3 inline mr-1" />Retensi aktif</span>
@@ -208,26 +205,24 @@ export default function Tagihan() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div><Label>Jatuh Tempo Utama</Label><Input data-testid="tagihan-due-input" type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} /></div>
-                    <div><Label>Retensi (%)</Label><Input data-testid="tagihan-retensi-percent" type="number" step="0.5" value={form.retention_percent} onChange={e => setForm({ ...form, retention_percent: e.target.value })} /></div>
-                    <div><Label>Jatuh Tempo Retensi (opsional)</Label><Input data-testid="tagihan-retensi-due" type="date" value={form.retensi_due_date} onChange={e => setForm({ ...form, retensi_due_date: e.target.value })} /></div>
                   </div>
 
                   <Card className="p-4 bg-blue-50 border-blue-200 space-y-1">
                     <div className="flex justify-between text-sm"><span className="text-slate-600">Subtotal Item</span><span className="font-mono tabular font-semibold">{formatIDR(subtotal)}</span></div>
                     {retensiPreview.total > 0 && (
                       <>
-                        <div className="flex justify-between text-sm text-orange-700"><span className="flex items-center gap-1"><Percent className="h-3.5 w-3.5" /> Dipotong Retensi ({form.retention_percent}%)</span><span className="font-mono tabular font-semibold">- {formatIDR(retensiPreview.total)}</span></div>
+                        <div className="flex justify-between text-sm text-orange-700"><span className="flex items-center gap-1"><Percent className="h-3.5 w-3.5" /> Dipotong Retensi (sesuai % proyek)</span><span className="font-mono tabular font-semibold">- {formatIDR(retensiPreview.total)}</span></div>
                         <div className="text-xs text-slate-500 pl-4">
-                          {retensiPreview.lines.map((l, i) => <div key={i}>• {l.projectName}: {formatIDR(l.amount)}</div>)}
+                          {retensiPreview.lines.map((l, i) => <div key={i}>• {l.projectName} ({l.pct}%): {formatIDR(l.amount)}</div>)}
                         </div>
                       </>
                     )}
                     <div className="border-t border-blue-200 pt-2 mt-2 flex justify-between font-display font-bold text-lg text-blue-900"><span>Total Invoice Utama</span><span className="font-mono tabular">{formatIDR(mainTotal)}</span></div>
                     {retensiPreview.total > 0 && (
                       <div className="mt-1 text-xs bg-orange-100 border border-orange-200 rounded px-2 py-1.5 text-orange-800">
-                        + Sistem akan otomatis membuat <strong>tagihan retensi terpisah</strong> sebesar {formatIDR(retensiPreview.total)}
+                        + Sistem akan otomatis membuat <strong>tagihan retensi terpisah</strong> sebesar {formatIDR(retensiPreview.total)} (jatuh tempo +90 hari)
                       </div>
                     )}
                   </Card>

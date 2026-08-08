@@ -46,6 +46,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
   const projValue = Number(form.project_value || 0);
   const retPct = Number(form.retention_percent || 0);
   const retValue = projValue * retPct / 100;
+  const isSPK = (form.spk_rab_type || "SPK") === "SPK";
 
   const save = async () => {
     try {
@@ -112,23 +113,27 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className={`grid gap-4 ${isSPK ? "grid-cols-3" : "grid-cols-1"}`}>
             <div>
               <Label>Nilai Proyek (Rp)</Label>
               <Input data-testid="detail-value" type="number" value={form.project_value ?? 0} onChange={e => setForm({ ...form, project_value: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
               {projValue > 0 && <div className="text-xs text-slate-500 mt-1 font-mono">{formatIDR(projValue)}</div>}
             </div>
-            <div>
-              <Label>Retensi (%)</Label>
-              <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
-            </div>
-            <div>
-              <Label>Nilai Retensi</Label>
-              <div className="h-11 mt-1.5 flex items-center justify-between px-3 rounded-md bg-slate-50 border border-slate-200">
-                <span className="font-mono tabular font-semibold text-orange-700">{formatIDR(retValue)}</span>
-                {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" title="Retensi sudah dibayar" />}
-              </div>
-            </div>
+            {isSPK && (
+              <>
+                <div>
+                  <Label>Retensi (%)</Label>
+                  <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
+                </div>
+                <div>
+                  <Label>Nilai Retensi</Label>
+                  <div className="h-11 mt-1.5 flex items-center justify-between px-3 rounded-md bg-slate-50 border border-slate-200">
+                    <span className="font-mono tabular font-semibold text-orange-700">{formatIDR(retValue)}</span>
+                    {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" title="Retensi sudah dibayar" />}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <div>
