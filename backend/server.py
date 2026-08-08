@@ -154,6 +154,7 @@ class ProjectMeta(BaseModel):
     maintenance_notes: Optional[str] = None
     retention_percent: Optional[float] = None
     retention_paid: Optional[bool] = None
+    has_retensi: Optional[Literal["ada", "tidak_ada"]] = None
     has_termin: Optional[Literal["ada", "tidak_ada"]] = None
     termin_count: Optional[int] = None
     termin_percents: Optional[List[float]] = None
@@ -771,7 +772,7 @@ async def create_tagihan(payload: TagihanIn, user=Depends(require_role("owner", 
     retensi_project_ids = []
     for pid, items in by_project.items():
         proj = projects_map.get(pid, {})
-        if proj.get("spk_rab_type", "SPK") == "SPK" and not proj.get("retention_paid", False):
+        if proj.get("spk_rab_type", "SPK") == "SPK" and not proj.get("retention_paid", False) and proj.get("has_retensi", "ada") != "tidak_ada":
             pct = max(0.0, min(float(proj.get("retention_percent") or 0), 100.0))
             proj_subtotal = sum(i.amount for i in items)
             r_amount = round(proj_subtotal * (pct / 100.0), 2)

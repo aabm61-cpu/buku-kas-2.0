@@ -48,6 +48,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
   const retValue = projValue * retPct / 100;
   const isSPK = (form.spk_rab_type || "SPK") === "SPK";
   const hasTermin = form.has_termin === "ada";
+  const hasRetensi = (form.has_retensi || "ada") === "ada";
   const terminCount = Number(form.termin_count || 0);
   const terminPercents = form.termin_percents || [];
 
@@ -70,6 +71,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
         penagihan_status: form.penagihan_status,
         project_value: Number(form.project_value) || 0,
         retention_percent: Number(form.retention_percent) || 0,
+        has_retensi: form.has_retensi || "ada",
         has_termin: form.has_termin || "tidak_ada",
         termin_count: Number(form.termin_count) || 0,
         termin_percents: (form.termin_percents || []).map(v => Number(v) || 0),
@@ -130,12 +132,24 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className={`grid gap-4 ${isSPK ? (hasTermin ? "grid-cols-3" : "grid-cols-2") : "grid-cols-1"}`}>
+          <div className={`grid gap-4 ${isSPK ? "grid-cols-2" : "grid-cols-1"}`}>
             <div>
               <Label>Nilai Proyek (Rp)</Label>
               <Input data-testid="detail-value" type="number" value={form.project_value ?? 0} onChange={e => setForm({ ...form, project_value: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
               {projValue > 0 && <div className="text-xs text-slate-500 mt-1 font-mono">{formatIDR(projValue)}</div>}
             </div>
+            {isSPK && (
+              <div>
+                <Label>Retensi</Label>
+                <Select value={form.has_retensi || "ada"} onValueChange={v => setForm({ ...form, has_retensi: v })}>
+                  <SelectTrigger data-testid="detail-has-retensi" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="ada">Ada</SelectItem>
+                    <SelectItem value="tidak_ada">Tidak Ada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {isSPK && (
               <div>
                 <Label>Termin</Label>
@@ -184,18 +198,20 @@ function DetailDialog({ project, open, onClose, onSaved }) {
                       </TableRow>
                     );
                   })}
-                  <TableRow className="bg-orange-50/50">
-                    <TableCell className="font-semibold text-orange-800">Retensi</TableCell>
-                    <TableCell>
-                      <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-9 font-mono tabular" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="inline-flex items-center gap-2 font-mono tabular font-semibold text-orange-700" data-testid="detail-retensi-nilai">
-                        {formatIDR(retValue)}
-                        {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" title="Retensi sudah dibayar" />}
-                      </span>
-                    </TableCell>
-                  </TableRow>
+                  {hasRetensi && (
+                    <TableRow className="bg-orange-50/50">
+                      <TableCell className="font-semibold text-orange-800">Retensi</TableCell>
+                      <TableCell>
+                        <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-9 font-mono tabular" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="inline-flex items-center gap-2 font-mono tabular font-semibold text-orange-700" data-testid="detail-retensi-nilai">
+                          {formatIDR(retValue)}
+                          {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" title="Retensi sudah dibayar" />}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
