@@ -165,7 +165,7 @@ export default function Tagihan() {
         <div>
           <div className="text-xs tracking-widest text-slate-500 mb-2">PENAGIHAN KLIEN</div>
           <h1 className="font-display font-extrabold text-3xl text-slate-900">Tagihan</h1>
-          <p className="text-slate-500 mt-1">Satu tagihan dapat mencakup beberapa proyek. Retensi otomatis dipecah menjadi tagihan terpisah.</p>
+          <p className="text-slate-500 mt-1">Satu tagihan dapat mencakup beberapa proyek, termin, dan retensi.</p>
         </div>
         <div className="flex items-center gap-2">
           {canWrite && (
@@ -288,9 +288,23 @@ export default function Tagihan() {
                     </div>
                   </TableCell>
                   <TableCell>{t.client_name}</TableCell>
-                  <TableCell className="text-slate-600 text-sm max-w-xs">
-                    {projectIds.length === 0 ? "-" : projectIds.map(projName).join(", ")}
-                    {projectIds.length > 1 && <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">{projectIds.length} proyek</span>}
+                  <TableCell className="text-slate-600 text-sm">
+                    {(t.items && t.items.length > 0) ? (
+                      <div className="space-y-1">
+                        {t.items.map((it, i) => {
+                          const detail = (it.description || "").split(" - ")[0];
+                          return (
+                            <div key={i} className="whitespace-normal leading-snug" data-testid={`tagihan-proj-line-${t.id}-${i}`}>
+                              <span className="font-semibold text-slate-900">{projName(it.project_id)}</span>
+                              {detail && <span className={it.is_retensi ? "text-orange-700" : "text-slate-500"}> · {detail}</span>}
+                              <span className="text-slate-400 font-mono tabular"> · {formatIDR(it.amount || 0)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      projectIds.length === 0 ? "-" : projectIds.map(projName).join(", ")
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular">{formatIDR(t.total)}</TableCell>
                   <TableCell className="text-right font-mono tabular text-green-700">{formatIDR(t.paid_amount)}</TableCell>

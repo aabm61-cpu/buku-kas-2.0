@@ -49,6 +49,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Filter termin/retensi sudah ditagih (8 Feb 2026): termin & retensi yang sudah pernah masuk tagihan tidak muncul lagi di form Tagihan Baru (dihitung dari items semua tagihan: `termin_index`, `is_retensi`); proyek hilang dari daftar jika semua sudah ditagihkan.
 - [x] Hapus field Catatan di form Tagihan Baru, hapus tombol Export CSV, hapus aksi hapus tagihan (8 Feb 2026). Endpoint DELETE /api/tagihan tetap ada di backend (tidak diekspos di UI).
 - [x] Dashboard Penagihan (8 Feb 2026): countdown timer diganti daftar tagihan belum lunas (klien, nomor invoice, jatuh tempo dengan tanda merah bila lewat, nominal total), urut jatuh tempo terdekat — komponen `TagihanDueList` (data-testid `duelist-card`).
+- [x] Kolom Proyek di tabel Tagihan (9 Feb 2026): tampil rinci per item — nama lokasi proyek lengkap (bold) + jenis (Termin n (%) / Retensi (%) / Nilai Proyek) + nominal per baris (data-testid `tagihan-proj-line-{tid}-{i}`).
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)
