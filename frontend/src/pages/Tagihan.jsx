@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Send, AlertTriangle, Wallet, Percent, Link2 } from "lucide-react";
+import { Plus, AlertTriangle, Percent, Link2, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDate } from "@/lib/format";
 
@@ -33,8 +33,6 @@ export default function Tagihan() {
   const [projects, setProjects] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty());
-  const [payDialog, setPayDialog] = useState(null);
-  const [payAmount, setPayAmount] = useState(0);
 
   const load = async () => {
     const [t, p] = await Promise.all([api.get("/tagihan"), api.get("/projects")]);
@@ -144,16 +142,10 @@ export default function Tagihan() {
     } catch (e) { toast.error(e.response?.data?.detail || "Gagal"); }
   };
 
-  const updateStatus = async (t, status) => {
-    await api.patch(`/tagihan/${t.id}`, { status });
-    toast.success("Status diperbarui"); load();
-  };
-
-  const recordPayment = async () => {
-    const newPaid = Number(payDialog.paid_amount || 0) + Number(payAmount);
-    await api.patch(`/tagihan/${payDialog.id}`, { paid_amount: newPaid });
-    toast.success("Pembayaran dicatat");
-    setPayDialog(null); setPayAmount(0); load();
+  const markPaid = async (t) => {
+    await api.patch(`/tagihan/${t.id}`, { paid_amount: t.total });
+    toast.success("Tagihan ditandai sudah terbayar");
+    load();
   };
 
   const today = new Date().toISOString().slice(0, 10);
@@ -268,10 +260,9 @@ export default function Tagihan() {
               <TableHead>Klien</TableHead>
               <TableHead>Proyek</TableHead>
               <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Terbayar</TableHead>
               <TableHead>Jatuh Tempo</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
+              <TableHead className="text-right">Pembayaran</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -307,35 +298,28 @@ export default function Tagihan() {
                     )}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular">{formatIDR(t.total)}</TableCell>
-                  <TableCell className="text-right font-mono tabular text-green-700">{formatIDR(t.paid_amount)}</TableCell>
                   <TableCell>{formatDate(t.due_date)}</TableCell>
                   <TableCell><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor[status] || statusColor.draft}`}>{(status || "draft").replace("_", " ").toUpperCase()}</span></TableCell>
                   <TableCell className="text-right">
-                    {canWrite && t.status === "draft" && <Button size="icon" variant="ghost" onClick={() => updateStatus(t, "terkirim")} title="Tandai terkirim"><Send className="h-4 w-4 text-blue-600" /></Button>}
-                    {canWrite && t.paid_amount < t.total && <Button size="icon" variant="ghost" onClick={() => { setPayDialog(t); setPayAmount(t.total - t.paid_amount); }} title="Catat pembayaran" data-testid={`tagihan-pay-${t.id}`}><Wallet className="h-4 w-4 text-green-600" /></Button>}
+                    {(t.paid_amount || 0) >= (t.total || 0) ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700" data-testid={`tagihan-paid-badge-${t.id}`}>
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Sudah Terbayar
+                      </span>
+                    ) : canWrite ? (
+                      <Button size="sm" className="h-8 rounded-full bg-green-600 hover:bg-green-700 text-white" onClick={() => markPaid(t)} data-testid={`tagihan-markpaid-${t.id}`}>
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Sudah Terbayar
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-slate-400">Belum Dibayar</span>
+                    )}
                   </TableCell>
                 </TableRow>
               );
             })}
-            {items.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-slate-500 py-8">Belum ada tagihan.</TableCell></TableRow>}
+            {items.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-8">Belum ada tagihan.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
-
-      <Dialog open={!!payDialog} onOpenChange={(v) => !v && setPayDialog(null)}>
-        <DialogContent className="bg-white">
-          <DialogHeader><DialogTitle>Catat Pembayaran</DialogTitle></DialogHeader>
-          {payDialog && (
-            <div className="space-y-3">
-              <div className="text-sm">Invoice: <span className="font-mono font-semibold">{payDialog.invoice_number}</span>{payDialog.is_retensi && <span className="ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500 text-white">RETENSI</span>}</div>
-              <div className="text-sm">Sisa: <span className="font-semibold text-red-600">{formatIDR(payDialog.total - payDialog.paid_amount)}</span></div>
-              <div><Label>Jumlah Pembayaran</Label><Input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} data-testid="tagihan-pay-amount" /></div>
-              {payDialog.is_retensi && <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded p-2">Ketika tagihan retensi ini lunas, status Payment Retensi pada proyek terkait akan otomatis diperbarui ke <strong>lunas</strong>.</p>}
-            </div>
-          )}
-          <DialogFooter><Button onClick={recordPayment} className="bg-green-600 hover:bg-green-700" data-testid="tagihan-pay-submit">Catat</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
