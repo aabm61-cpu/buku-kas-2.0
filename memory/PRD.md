@@ -51,6 +51,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Dashboard Penagihan (8 Feb 2026): countdown timer diganti daftar tagihan belum lunas (klien, nomor invoice, jatuh tempo dengan tanda merah bila lewat, nominal total), urut jatuh tempo terdekat — komponen `TagihanDueList` (data-testid `duelist-card`).
 - [x] Kolom Proyek di tabel Tagihan (9 Feb 2026): tampil rinci per item — nama lokasi proyek lengkap (bold) + jenis (Termin n (%) / Retensi (%) / Nilai Proyek) + nominal per baris (data-testid `tagihan-proj-line-{tid}-{i}`).
 - [x] Kolom Terbayar & Aksi dihapus (9 Feb 2026): diganti satu kolom "Pembayaran" — tombol "Sudah Terbayar" (`tagihan-markpaid-{id}`, set paid_amount=total → status lunas) untuk yang belum dibayar, badge hijau "Sudah Terbayar" (`tagihan-paid-badge-{id}`) untuk yang lunas. Dialog pembayaran parsial & aksi kirim dihapus.
+- [x] Input Proyek Baru dipindah ke menu Proyek (9 Feb 2026): tombol `projects-add-btn` toggle form QuickAddProject di halaman Proyek; dihapus dari Dashboard Penagihan. Field Keterangan kini tampil untuk Addwork DAN Maintenance (wajib hanya untuk Maintenance, disimpan di `maintenance_notes`). Saat Tim membuat buku kas, keterangan proyek Addwork/Maintenance tampil di dialog (`bukukas-project-notes`).
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)

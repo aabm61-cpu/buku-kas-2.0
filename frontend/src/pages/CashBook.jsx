@@ -394,6 +394,18 @@ export default function CashBook() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-slate-500 mt-1.5">Setelah diklaim, proyek ini tidak muncul lagi di dropdown tim lain.</p>
+              {(() => {
+                const sp = availableProjects.find(p => p.id === createForm.project_id);
+                if (sp && (sp.work_type === "Addwork" || sp.work_type === "Maintenance") && sp.maintenance_notes) {
+                  return (
+                    <div className={`mt-2 p-3 rounded-lg border text-sm ${sp.work_type === "Maintenance" ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"}`} data-testid="bukukas-project-notes">
+                      <div className={`text-xs font-semibold mb-1 ${sp.work_type === "Maintenance" ? "text-green-800" : "text-orange-800"}`}>Keterangan Pekerjaan {sp.work_type}</div>
+                      <div className="text-slate-700">{sp.maintenance_notes}</div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <div>
               <Label>Tambahkan Anggota Tim (Peninjau — Read Only)</Label>

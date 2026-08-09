@@ -4,7 +4,10 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate, formatIDR } from "@/lib/format";
 import { Briefcase, FolderKanban, Building2 } from "lucide-react";
+import QuickAddProject from "@/components/QuickAddProject";
 import ProjectsTable from "@/components/ProjectsTable";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 const workTypeColor = {
   "Renov": "bg-blue-100 text-blue-700",
@@ -19,18 +22,32 @@ const statusStyle = { aktif: "bg-green-100 text-green-700", selesai: "bg-slate-1
 export default function Projects() {
   const { user } = useAuth();
   const [items, setItems] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [tableKey, setTableKey] = useState(0);
   const load = () => api.get("/projects").then(r => setItems(r.data));
   useEffect(() => { load(); }, []);
 
   if (user.role === "owner" || user.role === "penagihan") {
     return (
       <div className="space-y-6">
-        <div>
-          <div className="text-xs tracking-widest text-slate-500 mb-2">PORTOFOLIO</div>
-          <h1 className="font-display font-extrabold text-3xl text-slate-900">Proyek</h1>
-          <p className="text-slate-500 mt-1">Daftar HUB/SOC — nilai proyek, retensi, penagihan & keterangan bisa diubah langsung dari tabel.</p>
+        <div className="flex items-end justify-between flex-wrap gap-4">
+          <div>
+            <div className="text-xs tracking-widest text-slate-500 mb-2">PORTOFOLIO</div>
+            <h1 className="font-display font-extrabold text-3xl text-slate-900">Proyek</h1>
+            <p className="text-slate-500 mt-1">Daftar HUB/SOC — nilai proyek, retensi, penagihan & keterangan bisa diubah langsung dari tabel.</p>
+          </div>
+          <Button
+            data-testid="projects-add-btn"
+            onClick={() => setShowAdd(v => !v)}
+            className="rounded-full bg-blue-700 hover:bg-blue-800"
+          >
+            <Plus className="h-4 w-4 mr-2" /> Input Proyek Baru
+          </Button>
         </div>
-        <ProjectsTable />
+        {showAdd && (
+          <QuickAddProject onCreated={() => { setShowAdd(false); setTableKey(k => k + 1); }} />
+        )}
+        <ProjectsTable key={tableKey} />
       </div>
     );
   }

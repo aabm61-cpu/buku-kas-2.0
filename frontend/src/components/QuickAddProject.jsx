@@ -15,6 +15,7 @@ const emptyForm = { name: "", work_type: "Renov", client_name: "", maintenance_n
 export default function QuickAddProject({ onCreated }) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const needsNotes = form.work_type === "Maintenance" || form.work_type === "Addwork";
   const isMaintenance = form.work_type === "Maintenance";
 
   // Auto-uppercase every character typed into any text field
@@ -31,7 +32,7 @@ export default function QuickAddProject({ onCreated }) {
         name: upper(form.name).trim(),
         work_type: form.work_type,
         client_name: upper(form.client_name).trim(),
-        maintenance_notes: isMaintenance ? upper(form.maintenance_notes) : "",
+        maintenance_notes: needsNotes ? upper(form.maintenance_notes) : "",
       });
       toast.success("Proyek berhasil dibuat");
       setForm(emptyForm);
@@ -87,16 +88,18 @@ export default function QuickAddProject({ onCreated }) {
             </div>
           </div>
 
-          {isMaintenance && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <Label className="flex items-center gap-1.5 text-green-800"><Wrench className="h-3.5 w-3.5" /> Keterangan Pekerjaan Maintenance <span className="text-red-500">*</span></Label>
+          {needsNotes && (
+            <div className={`p-3 rounded-lg border ${isMaintenance ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"}`}>
+              <Label className={`flex items-center gap-1.5 ${isMaintenance ? "text-green-800" : "text-orange-800"}`}>
+                <Wrench className="h-3.5 w-3.5" /> Keterangan Pekerjaan {form.work_type} {isMaintenance && <span className="text-red-500">*</span>}
+              </Label>
               <Textarea
                 data-testid="quick-project-maintenance-notes"
                 value={form.maintenance_notes}
                 onChange={e => setForm({ ...form, maintenance_notes: upper(e.target.value) })}
                 placeholder="DETAIL PEKERJAAN: MIS. PERBAIKAN AC, PENGECATAN ULANG, GANTI LAMPU…"
                 className="mt-1.5 min-h-[70px] text-sm uppercase"
-                required
+                required={isMaintenance}
               />
             </div>
           )}

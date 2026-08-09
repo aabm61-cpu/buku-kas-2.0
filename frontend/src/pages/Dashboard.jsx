@@ -7,7 +7,6 @@ import {
   TrendingUp, TrendingDown, Wallet, MapPin, FolderKanban, Users as UsersIcon,
   FileText, AlertTriangle, Coins, Clock, CheckCircle2,
 } from "lucide-react";
-import QuickAddProject from "@/components/QuickAddProject";
 
 const StatCard = ({ icon: Icon, label, value, color = "blue", testId }) => (
   <Card className="p-5 card-lift bg-white border-slate-200" data-testid={testId}>
@@ -188,13 +187,11 @@ function BendaharaDashboard({ stats }) {
 function PenagihanDashboard({ stats }) {
   const [tagihan, setTagihan] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  const loadAll = () => {
+  useEffect(() => {
     api.get("/tagihan").then(r => setTagihan(r.data)).catch(() => {});
     api.get("/projects").then(r => setProjects(r.data)).catch(() => {});
-  };
-  useEffect(() => { loadAll(); }, [refreshKey]);
+  }, []);
 
   const activeProjects = projects.filter(p => p.status === "aktif").length;
 
@@ -215,8 +212,6 @@ function PenagihanDashboard({ stats }) {
           <StatCard testId="stat-tagihan-total" icon={FileText} label="Total Tagihan" value={formatIDR(stats.total_tagihan || 0)} color="orange" />
         </div>
       </div>
-
-      <QuickAddProject onCreated={() => setRefreshKey(k => k + 1)} />
     </div>
   );
 }
