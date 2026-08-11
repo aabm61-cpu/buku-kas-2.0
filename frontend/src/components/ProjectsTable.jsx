@@ -43,6 +43,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
   useEffect(() => { setForm(project || {}); }, [project]);
   if (!project) return null;
 
+  const readOnly = !!project.is_completed;
   const projValue = Number(form.project_value || 0);
   const retPct = Number(form.retention_percent || 0);
   const retValue = projValue * retPct / 100;
@@ -118,14 +119,14 @@ function DetailDialog({ project, open, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Penagihan</Label>
-              <Select value={form.penagihan_status || "belum_dibuat"} onValueChange={v => setForm({ ...form, penagihan_status: v })}>
+              <Select disabled={readOnly} value={form.penagihan_status || "belum_dibuat"} onValueChange={v => setForm({ ...form, penagihan_status: v })}>
                 <SelectTrigger data-testid="detail-penagihan" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-white">{PENAGIHAN_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <Label>SPK / RAB</Label>
-              <Select value={form.spk_rab_type || "SPK"} onValueChange={v => setForm({ ...form, spk_rab_type: v })}>
+              <Select disabled={readOnly} value={form.spk_rab_type || "SPK"} onValueChange={v => setForm({ ...form, spk_rab_type: v })}>
                 <SelectTrigger data-testid="detail-spk-rab" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-white">{SPK_RAB_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
               </Select>
@@ -135,7 +136,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
           <div className={`grid gap-4 ${isSPK ? "grid-cols-2" : "grid-cols-1"}`}>
             <div>
               <Label>Nilai Proyek (Rp)</Label>
-              <Input data-testid="detail-value" type="number" value={form.project_value ?? 0} onChange={e => setForm({ ...form, project_value: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
+              <Input data-testid="detail-value" type="number" disabled={readOnly} value={form.project_value ?? 0} onChange={e => setForm({ ...form, project_value: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
               {projValue > 0 && <div className="text-xs text-slate-500 mt-1 font-mono">{formatIDR(projValue)}</div>}
             </div>
             {isSPK && (
@@ -153,7 +154,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             {isSPK && (
               <div>
                 <Label>Termin</Label>
-                <Select value={form.has_termin || "tidak_ada"} onValueChange={v => setForm({ ...form, has_termin: v })}>
+                <Select disabled={readOnly} value={form.has_termin || "tidak_ada"} onValueChange={v => setForm({ ...form, has_termin: v })}>
                   <SelectTrigger data-testid="detail-has-termin" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-white">
                     <SelectItem value="ada">Ada</SelectItem>
@@ -165,7 +166,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             {isSPK && hasTermin && (
               <div>
                 <Label>Jumlah Termin</Label>
-                <Select value={terminCount ? String(terminCount) : ""} onValueChange={setTerminCount}>
+                <Select disabled={readOnly} value={terminCount ? String(terminCount) : ""} onValueChange={setTerminCount}>
                   <SelectTrigger data-testid="detail-termin-count" className="h-11 mt-1.5"><SelectValue placeholder="Pilih jumlah termin" /></SelectTrigger>
                   <SelectContent className="bg-white">
                     {[1, 2, 3].map(n => <SelectItem key={n} value={String(n)}>{n} Termin</SelectItem>)}
@@ -192,7 +193,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
                       <TableRow key={i}>
                         <TableCell className="font-semibold">Termin {i + 1}</TableCell>
                         <TableCell>
-                          <Input data-testid={`detail-termin-pct-${i}`} type="number" step="0.5" min="0" max="100" value={terminPercents[i] ?? 0} onChange={e => setTerminPct(i, e.target.value)} className="h-9 font-mono tabular" />
+                          <Input data-testid={`detail-termin-pct-${i}`} type="number" step="0.5" min="0" max="100" disabled={readOnly} value={terminPercents[i] ?? 0} onChange={e => setTerminPct(i, e.target.value)} className="h-9 font-mono tabular" />
                         </TableCell>
                         <TableCell className="text-right font-mono tabular font-semibold" data-testid={`detail-termin-nilai-${i}`}>{formatIDR(projValue * pct / 100)}</TableCell>
                       </TableRow>
@@ -202,7 +203,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
                     <TableRow className="bg-orange-50/50">
                       <TableCell className="font-semibold text-orange-800">Retensi</TableCell>
                       <TableCell>
-                        <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-9 font-mono tabular" />
+                        <Input data-testid="detail-retpct" type="number" step="0.5" min="0" max="100" disabled={readOnly} value={form.retention_percent ?? 0} onChange={e => setForm({ ...form, retention_percent: e.target.value })} className="h-9 font-mono tabular" />
                       </TableCell>
                       <TableCell className="text-right">
                         <span className="inline-flex items-center gap-2 font-mono tabular font-semibold text-orange-700" data-testid="detail-retensi-nilai">
@@ -219,20 +220,21 @@ function DetailDialog({ project, open, onClose, onSaved }) {
 
           <div>
             <Label>Keterangan</Label>
-            <Textarea data-testid="detail-keterangan" value={form.keterangan || ""} onChange={e => setForm({ ...form, keterangan: e.target.value })} className="mt-1.5 min-h-[70px]" placeholder="Catatan tambahan…" />
+            <Textarea data-testid="detail-keterangan" disabled={readOnly} value={form.keterangan || ""} onChange={e => setForm({ ...form, keterangan: e.target.value })} className="mt-1.5 min-h-[70px]" placeholder="Catatan tambahan…" />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          {readOnly && <span className="text-xs text-slate-500 self-center mr-auto">Proyek selesai — hanya bisa dilihat.</span>}
           <Button variant="outline" onClick={onClose}>Tutup</Button>
-          <Button data-testid="detail-save-btn" onClick={save} className="bg-blue-700 hover:bg-blue-800">Simpan Perubahan</Button>
+          {!readOnly && <Button data-testid="detail-save-btn" onClick={save} className="bg-blue-700 hover:bg-blue-800">Simpan Perubahan</Button>}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-function ProjectRow({ p, showComplete, onDetail, onComplete, onReopen }) {
+function ProjectRow({ p, showComplete, canReopen, onDetail, onComplete, onReopen }) {
   const ws = WORK_STATUS[p.work_status] || WORK_STATUS.belum_mulai;
   return (
     <TableRow data-testid={`proj-row-${p.id}`}>
@@ -277,7 +279,7 @@ function ProjectRow({ p, showComplete, onDetail, onComplete, onReopen }) {
             >
               <Archive className="h-3.5 w-3.5 mr-1.5" /> Selesai
             </Button>
-          ) : (
+          ) : canReopen ? (
             <Button
               size="sm"
               variant="outline"
@@ -287,7 +289,7 @@ function ProjectRow({ p, showComplete, onDetail, onComplete, onReopen }) {
             >
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Kembalikan
             </Button>
-          )}
+          ) : null}
         </div>
       </TableCell>
     </TableRow>
@@ -342,6 +344,7 @@ export default function ProjectsTable() {
                 key={p.id}
                 p={p}
                 showComplete={showComplete}
+                canReopen={user.role === "owner"}
                 onDetail={openDetail}
                 onComplete={markComplete}
                 onReopen={reopen}
