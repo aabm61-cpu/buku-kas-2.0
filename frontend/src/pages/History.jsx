@@ -3,8 +3,8 @@ import api from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MapPin, CalendarCheck, TrendingUp, TrendingDown, Search, X } from "lucide-react";
-import { formatIDR, formatDate } from "@/lib/format";
+import { MapPin, CalendarCheck, Search, X, Users, Crown } from "lucide-react";
+import { formatDate } from "@/lib/format";
 
 export default function History() {
   const [items, setItems] = useState([]);
@@ -68,21 +68,31 @@ export default function History() {
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">SELESAI</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-green-50 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 text-xs text-green-700 font-medium"><TrendingUp className="h-3.5 w-3.5" /> Pemasukan</div>
-                <div className="font-mono font-bold text-green-900 mt-1">{formatIDR(loc.total_in)}</div>
+            <div className="mb-4">
+              <div className="flex items-center gap-1.5 text-xs font-semibold tracking-widest text-slate-500 mb-2">
+                <Users className="h-3.5 w-3.5" /> TIM YANG TERLIBAT
               </div>
-              <div className="bg-red-50 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 text-xs text-red-700 font-medium"><TrendingDown className="h-3.5 w-3.5" /> Pengeluaran</div>
-                <div className="font-mono font-bold text-red-900 mt-1">{formatIDR(loc.total_out)}</div>
-              </div>
+              {(loc.team || []).length === 0 ? (
+                <div className="text-sm text-slate-400">Tidak ada data tim.</div>
+              ) : (
+                <div className="flex flex-wrap gap-2" data-testid={`history-team-${loc.id}`}>
+                  {(loc.team || []).map(m => (
+                    <span
+                      key={m.user_id}
+                      className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full border ${m.role_type === "pic" ? "bg-orange-50 border-orange-200 text-orange-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}
+                    >
+                      {m.role_type === "pic" && <Crown className="h-3.5 w-3.5" />}
+                      {m.name}
+                      <span className="text-[10px] uppercase tracking-wider opacity-70">{m.role_type === "pic" ? "PIC" : "Peninjau"}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="text-sm text-slate-600 flex items-center gap-2 border-t border-slate-100 pt-3">
               <CalendarCheck className="h-4 w-4 text-green-600" />
               <span>Pekerjaan selesai: <span className="font-semibold">{formatDate(loc.closed_at)}</span></span>
-              <span className="text-slate-400">· {loc.count} transaksi</span>
             </div>
           </Card>
         ))}

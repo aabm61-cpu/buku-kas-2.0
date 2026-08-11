@@ -25,6 +25,7 @@ export default function CashBook() {
   const [locations, setLocations] = useState([]);
   const [projects, setProjects] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [selectedLoc, setSelectedLoc] = useState(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyEntry());
@@ -36,14 +37,14 @@ export default function CashBook() {
   const [createForm, setCreateForm] = useState({ project_id: "", member_user_ids: [] });
 
   const load = async () => {
-    const [c, l, p, a] = await Promise.all([
+    const [c, l, p, a, us] = await Promise.all([
       api.get("/cashbook"),
       api.get("/locations"),
       api.get("/projects"),
       api.get("/assignments").catch(() => ({ data: [] })),
+      api.get("/users").catch(() => ({ data: [] })),
     ]);
-    setItems(c.data); setLocations(l.data); setProjects(p.data); setAssignments(a.data);
-    if (!selectedLoc && l.data.length > 0) setSelectedLoc(l.data[0].id);
+    setItems(c.data); setLocations(l.data); setProjects(p.data); setAssignments(a.data); setAllUsers(us.data);
   };
   useEffect(() => { load(); }, []); // eslint-disable-line
 
@@ -97,6 +98,13 @@ export default function CashBook() {
   const activeSum = summaryByLoc[selectedLoc] || { in: 0, out: 0, count: 0 };
   const activeLoc = locations.find(l => l.id === selectedLoc);
   const activeProj = activeLoc ? projByLoc(activeLoc.id) : null;
+  const activeMembers = useMemo(() => {
+    if (!selectedLoc) return [];
+    return assignments
+      .filter(a => a.location_id === selectedLoc)
+      .map(a => ({ ...a, name: allUsers.find(u => u.id === a.user_id)?.name || allUsers.find(u => u.id === a.user_id)?.username || "-" }))
+      .sort((a, b) => (a.role_type === "pic" ? -1 : 1) - (b.role_type === "pic" ? -1 : 1));
+  }, [assignments, allUsers, selectedLoc]);
 
   const submit = async () => {
     if (!selectedLoc) { toast.error("Pilih buku kas terlebih dulu"); return; }
@@ -340,6 +348,28 @@ export default function CashBook() {
           {isViewer && (
             <Card className="p-3 bg-slate-50 border-slate-200 flex items-center gap-2 text-sm text-slate-700">
               <EyeOff className="h-4 w-4" /> Anda tercatat sebagai <strong>peninjau</strong> di buku kas ini — hanya bisa melihat, tidak bisa mencatat.
+            </Card>
+          )}
+
+          {activeMembers.length > 0 && (
+            <Card className="p-4 bg-white border-slate-200" data-testid="bukukas-members-card">
+              <div className="flex items-center gap-2 mb-2.5">
+                <UserPlus className="h-4 w-4 text-blue-700" />
+                <span className="text-xs font-semibold tracking-widest text-slate-500">ANGGOTA TIM DI BUKU KAS INI · {activeMembers.length} ORANG</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {activeMembers.map(m => (
+                  <span
+                    key={m.id}
+                    data-testid={`bukukas-member-${m.user_id}`}
+                    className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full border ${m.role_type === "pic" ? "bg-orange-50 border-orange-200 text-orange-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}
+                  >
+                    {m.role_type === "pic" && <Crown className="h-3.5 w-3.5" />}
+                    {m.name}
+                    <span className="text-[10px] uppercase tracking-wider opacity-70">{m.role_type === "pic" ? "PIC" : "Peninjau"}</span>
+                  </span>
+                ))}
+              </div>
             </Card>
           )}
 

@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, FolderKanban, MapPin, Activity as ActivityIcon,
   FileText, BookOpen, Coins, Wallet, History as HistoryIcon, UserPlus,
-  HardHat, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen,
+  HardHat, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, KeyRound,
 } from "lucide-react";
 import { roleLabel } from "@/lib/format";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "penagihan", "bendahara", "tim"] },
@@ -16,7 +17,7 @@ const NAV = [
   { to: "/locations", label: "Lokasi", icon: MapPin, roles: ["owner"] },
   { to: "/tagihan", label: "Tagihan", icon: FileText, roles: ["owner", "penagihan", "bendahara"] },
   { to: "/cashbook", label: "Buku Kas", icon: BookOpen, roles: ["owner", "bendahara", "tim"] },
-  { to: "/kasbon", label: "Kasbon", icon: Coins, roles: ["owner", "bendahara", "tim"] },
+  { to: "/kasbon", label: "Kasbon & Pembayaran", icon: Coins, roles: ["owner", "bendahara", "tim"] },
   { to: "/team-payments", label: "Bayaran Tim", icon: Wallet, roles: ["owner", "bendahara"] },
   { to: "/team", label: "Anggota Tim", icon: UserPlus, roles: ["owner"] },
   { to: "/history-bukukas", label: "Riwayat Buku Kas", icon: HistoryIcon, roles: ["owner", "bendahara", "tim"] },
@@ -28,6 +29,7 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const [openMobile, setOpenMobile] = useState(false);
+  const [openChangePw, setOpenChangePw] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("sidebar_collapsed") === "1"; } catch { return false; }
   });
@@ -101,6 +103,15 @@ export default function Layout() {
             </div>
           </div>
           <Button
+            data-testid="change-password-btn"
+            variant="outline"
+            size="sm"
+            className="w-full mb-2"
+            onClick={() => setOpenChangePw(true)}
+          >
+            <KeyRound className="h-4 w-4 mr-2" /> Ubah Password
+          </Button>
+          <Button
             data-testid="logout-btn"
             variant="outline"
             size="sm"
@@ -111,6 +122,8 @@ export default function Layout() {
           </Button>
         </div>
       </aside>
+
+      <ChangePasswordDialog open={openChangePw} onOpenChange={setOpenChangePw} />
 
       {openMobile && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setOpenMobile(false)} />}
 

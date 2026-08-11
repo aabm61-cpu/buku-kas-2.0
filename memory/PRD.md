@@ -54,6 +54,8 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Input Proyek Baru dipindah ke menu Proyek (9 Feb 2026): tombol `projects-add-btn` toggle form QuickAddProject di halaman Proyek; dihapus dari Dashboard Penagihan. Field Keterangan kini tampil untuk Addwork DAN Maintenance (wajib hanya untuk Maintenance, disimpan di `maintenance_notes`). Saat Tim membuat buku kas, keterangan proyek Addwork/Maintenance tampil di dialog (`bukukas-project-notes`).
 - [x] Tombol Kembalikan disembunyikan untuk Penagihan (11 Feb 2026): hanya Owner yang bisa mengembalikan proyek selesai ke berjalan (prop `canReopen`).
 - [x] Detail proyek selesai read-only (11 Feb 2026): semua field (select, input, textarea) disabled bila `is_completed`, tombol Simpan disembunyikan, ada label "Proyek selesai — hanya bisa dilihat."
+- [x] Ubah Password semua user (11 Feb 2026): endpoint `POST /api/auth/change-password` (verifikasi password lama, min 6 karakter, tidak boleh sama dengan lama), tombol "Ubah Password" di footer sidebar (semua role) membuka `ChangePasswordDialog` (data-testid `change-password-btn`, `changepw-*`).
+- [x] 4 perubahan UX (11 Feb 2026): (1) Buku Kas tidak auto-masuk — daftar pilihan tampil dulu (hapus auto-select di load); (2) kartu "Anggota Tim di Buku Kas Ini" di buku kas aktif (`bukukas-members-card`, chip nama + PIC/Peninjau); (3) menu Kasbon → "Kasbon & Pembayaran"; (4) History Lokasi: pemasukan/pengeluaran/transaksi diganti daftar "Tim yang Terlibat" (backend `/bukukas/history` kini mengembalikan `team[]` dengan nama + role_type).
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)

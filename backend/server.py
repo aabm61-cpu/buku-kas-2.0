@@ -252,6 +252,23 @@ async def login(payload: LoginIn):
 async def me(user=Depends(get_current_user)):
     return user
 
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str
+
+@api.post("/auth/change-password")
+async def change_password(payload: ChangePasswordIn, user=Depends(get_current_user)):
+    doc = await db.users.find_one({"id": user["id"]})
+    if not doc or not verify_password(payload.current_password, doc["password_hash"]):
+        raise HTTPException(400, "Password saat ini salah")
+    if len(payload.new_password) < 6:
+        raise HTTPException(400, "Password baru minimal 6 karakter")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(400, "Password baru tidak boleh sama dengan password lama")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"password_hash": hash_password(payload.new_password)}})
+    await log_activity(user, "update", "user", user["id"], "Ubah password sendiri")
+    return {"ok": True}
+
 # ---------------- Users (Owner) ----------------
 @api.get("/users")
 async def list_users(user=Depends(get_current_user)):
@@ -566,6 +583,17 @@ async def bukukas_history(user=Depends(get_current_user)):
         entry["total_in"] = s_in
         entry["total_out"] = s_out
         entry["count"] = cnt
+        # attach team members involved at this location
+        team = []
+        async for a in db.location_assignments.find({"location_id": l["id"]}):
+            u = await db.users.find_one({"id": a["user_id"]})
+            team.append({
+                "user_id": a["user_id"],
+                "name": (u or {}).get("name") or (u or {}).get("username") or "-",
+                "role_type": a.get("role_type", "viewer"),
+            })
+        team.sort(key=lambda m: 0 if m["role_type"] == "pic" else 1)
+        entry["team"] = team
         result.append(entry)
     return result
 
