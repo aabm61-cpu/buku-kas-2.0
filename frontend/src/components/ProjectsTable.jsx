@@ -3,7 +3,6 @@ import api from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -76,7 +75,6 @@ function DetailDialog({ project, open, onClose, onSaved }) {
         has_termin: form.has_termin || "tidak_ada",
         termin_count: Number(form.termin_count) || 0,
         termin_percents: (form.termin_percents || []).map(v => Number(v) || 0),
-        keterangan: form.keterangan || "",
         end_date: form.end_date || null,
       });
       toast.success("Perubahan tersimpan");
@@ -217,11 +215,6 @@ function DetailDialog({ project, open, onClose, onSaved }) {
               </Table>
             </div>
           )}
-
-          <div>
-            <Label>Keterangan</Label>
-            <Textarea data-testid="detail-keterangan" disabled={readOnly} value={form.keterangan || ""} onChange={e => setForm({ ...form, keterangan: e.target.value })} className="mt-1.5 min-h-[70px]" placeholder="Catatan tambahan…" />
-          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
