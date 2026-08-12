@@ -191,7 +191,9 @@ class CashBookIn(BaseModel):
     category: str
     amount: float
     description: str = ""
-    receipt_base64: str = ""  # required only for pengeluaran
+    receipt_base64: str = ""  # required only for pengeluaran non-Kasbon
+    kasbon_user_id: Optional[str] = None
+    kasbon_user_name: Optional[str] = ""
     date: Optional[str] = None
 
 class KasbonIn(BaseModel):
@@ -673,8 +675,10 @@ async def list_cashbook(location_id: Optional[str] = None, user=Depends(get_curr
 
 @api.post("/cashbook")
 async def create_cashbook(payload: CashBookIn, user=Depends(require_role("tim", "bendahara", "owner"))):
-    if not payload.receipt_base64 and payload.type == "pengeluaran":
+    if payload.type == "pengeluaran" and payload.category != "Kasbon" and not payload.receipt_base64:
         raise HTTPException(400, "Foto nota wajib untuk pengeluaran")
+    if payload.type == "pengeluaran" and payload.category == "Kasbon" and not payload.kasbon_user_id:
+        raise HTTPException(400, "Pilih anggota tim yang mengajukan kasbon")
     # verify access
     if user["role"] == "tim":
         assignment = await db.location_assignments.find_one({"location_id": payload.location_id, "user_id": user["id"]})
@@ -696,6 +700,8 @@ async def create_cashbook(payload: CashBookIn, user=Depends(require_role("tim", 
         "amount": payload.amount,
         "description": payload.description,
         "receipt_base64": payload.receipt_base64,
+        "kasbon_user_id": payload.kasbon_user_id or None,
+        "kasbon_user_name": payload.kasbon_user_name or "",
         "date": payload.date or now_iso(),
         "created_at": now_iso(),
     }

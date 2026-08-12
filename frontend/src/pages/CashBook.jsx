@@ -15,7 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import ReceiptUpload from "@/components/ReceiptUpload";
 
-const emptyEntry = () => ({ type: "pengeluaran", category: "", amount: "", description: "", receipt_base64: "" });
+const emptyEntry = () => ({ type: "pengeluaran", category: "", amount: "", description: "", receipt_base64: "", kasbon_user_id: "" });
 
 const PENGELUARAN_CATS = ["Konsumsi", "Material", "Kasbon"];
 
@@ -109,9 +109,11 @@ export default function CashBook() {
   const submit = async () => {
     if (!selectedLoc) { toast.error("Pilih buku kas terlebih dulu"); return; }
     if (!form.amount || Number(form.amount) <= 0) { toast.error("Nominal tidak valid"); return; }
+    const isKasbon = form.type === "pengeluaran" && form.category === "Kasbon";
     if (form.type === "pengeluaran") {
       if (!form.category) { toast.error("Kategori wajib dipilih"); return; }
-      if (!form.receipt_base64) { toast.error("Foto nota wajib diupload untuk pengeluaran"); return; }
+      if (isKasbon && !form.kasbon_user_id) { toast.error("Pilih anggota tim yang mengajukan kasbon"); return; }
+      if (!isKasbon && !form.receipt_base64) { toast.error("Foto nota wajib diupload untuk pengeluaran"); return; }
     }
     try {
       await api.post("/cashbook", {
@@ -120,7 +122,9 @@ export default function CashBook() {
         category: form.type === "pemasukan" ? "Pemasukan" : form.category,
         amount: Number(form.amount),
         description: form.description || "",
-        receipt_base64: form.type === "pengeluaran" ? form.receipt_base64 : "",
+        receipt_base64: form.type === "pengeluaran" && !isKasbon ? form.receipt_base64 : "",
+        kasbon_user_id: isKasbon ? form.kasbon_user_id : null,
+        kasbon_user_name: isKasbon ? (activeMembers.find(m => m.user_id === form.kasbon_user_id)?.name || "") : "",
         date: new Date().toISOString(),
       });
       toast.success("Pencatatan berhasil");
@@ -319,22 +323,40 @@ export default function CashBook() {
                         </div>
                       </div>
 
-                      <div><Label>Nominal (Rp) <span className="text-red-500">*</span></Label><Input type="number" data-testid="cashbook-amount-input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className="h-11 mt-1.5 font-mono tabular" placeholder="0" /></div>
+                      {form.type === "pemasukan" && (
+                        <div><Label>Nominal (Rp) <span className="text-red-500">*</span></Label><Input type="number" data-testid="cashbook-amount-input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className="h-11 mt-1.5 font-mono tabular" placeholder="0" /></div>
+                      )}
 
                       {form.type === "pengeluaran" && (
                         <>
                           <div>
                             <Label>Kategori <span className="text-red-500">*</span></Label>
-                            <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                            <Select value={form.category} onValueChange={v => setForm({ ...form, category: v, kasbon_user_id: "", receipt_base64: v === "Kasbon" ? "" : form.receipt_base64 })}>
                               <SelectTrigger data-testid="cashbook-category-select" className="h-11 mt-1.5"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
                               <SelectContent className="bg-white">{PENGELUARAN_CATS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                             </Select>
                           </div>
-                          <div><Label>Deskripsi (opsional)</Label><Textarea data-testid="cashbook-desc-input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Contoh: Beli semen 5 sak" /></div>
-                          <div>
-                            <Label className="mb-2 block">Foto Nota <span className="text-red-500">*</span></Label>
-                            <ReceiptUpload value={form.receipt_base64} onChange={(b64) => setForm({ ...form, receipt_base64: b64 })} testId="cashbook-receipt" />
-                          </div>
+                          {form.category === "Kasbon" && (
+                            <div>
+                              <Label>Nama Pengaju Kasbon <span className="text-red-500">*</span></Label>
+                              <Select value={form.kasbon_user_id} onValueChange={v => setForm({ ...form, kasbon_user_id: v })}>
+                                <SelectTrigger data-testid="cashbook-kasbon-member-select" className="h-11 mt-1.5"><SelectValue placeholder="Pilih anggota tim" /></SelectTrigger>
+                                <SelectContent className="bg-white">
+                                  {activeMembers.length === 0 && <div className="p-3 text-sm text-slate-500 text-center">Belum ada anggota tim di buku kas ini.</div>}
+                                  {activeMembers.map(m => <SelectItem key={m.user_id} value={m.user_id}>{m.name}{m.role_type === "pic" ? " (PIC)" : ""}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-slate-500 mt-1">Diambil dari anggota tim yang sudah ditambahkan di buku kas ini. Foto nota tidak diperlukan untuk kasbon.</p>
+                            </div>
+                          )}
+                          <div><Label>Nominal (Rp) <span className="text-red-500">*</span></Label><Input type="number" data-testid="cashbook-amount-input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className="h-11 mt-1.5 font-mono tabular" placeholder="0" /></div>
+                          <div><Label>Keterangan / Deskripsi (opsional)</Label><Textarea data-testid="cashbook-desc-input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Contoh: Beli semen 5 sak" /></div>
+                          {form.category !== "Kasbon" && (
+                            <div>
+                              <Label className="mb-2 block">Foto Nota <span className="text-red-500">*</span></Label>
+                              <ReceiptUpload value={form.receipt_base64} onChange={(b64) => setForm({ ...form, receipt_base64: b64 })} testId="cashbook-receipt" />
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -396,7 +418,7 @@ export default function CashBook() {
                   <TableRow key={i.id} data-testid={`cashbook-row-${i.id}`}>
                     <TableCell className="text-sm text-slate-600">{formatDateTime(i.date)}</TableCell>
                     <TableCell><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${i.type === "pemasukan" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{i.category}</span></TableCell>
-                    <TableCell className="text-slate-700 max-w-xs truncate">{i.description || "-"}</TableCell>
+                    <TableCell className="text-slate-700 max-w-xs truncate">{i.kasbon_user_name ? <span className="font-semibold text-slate-900">{i.kasbon_user_name}</span> : null}{i.kasbon_user_name && i.description ? " — " : ""}{i.description || (i.kasbon_user_name ? "" : "-")}</TableCell>
                     <TableCell className={`text-right font-mono tabular font-semibold ${i.type === "pemasukan" ? "text-green-700" : "text-red-700"}`}>{i.type === "pemasukan" ? "+" : "-"}{formatIDR(i.amount)}</TableCell>
                     <TableCell>{i.receipt_base64 ? <Button size="icon" variant="ghost" onClick={() => setPreview(i.receipt_base64)} data-testid={`cashbook-view-nota-${i.id}`}><Eye className="h-4 w-4" /></Button> : <span className="text-slate-300 text-xs">—</span>}</TableCell>
                     <TableCell>{(user.role === "owner" || (i.user_id === user.id && !isViewer)) && <Button size="icon" variant="ghost" onClick={() => remove(i.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>}</TableCell>
