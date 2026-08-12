@@ -252,74 +252,87 @@ export default function Tagihan() {
         </Card>
       )}
 
-      <Card className="overflow-hidden bg-white border-slate-200">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50">
-              <TableHead>Invoice</TableHead>
-              <TableHead>Klien</TableHead>
-              <TableHead>Proyek</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead>Jatuh Tempo</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Pembayaran</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map(t => {
-              const status = t.due_date < today && t.paid_amount < t.total && t.status !== "lunas" ? "jatuh_tempo" : t.status;
-              const projectIds = t.project_ids || (t.project_id ? [t.project_id] : []);
-              return (
-                <TableRow key={t.id} data-testid={`tagihan-row-${t.id}`} className={t.is_retensi ? "bg-orange-50/40" : ""}>
-                  <TableCell className="font-mono font-semibold">
-                    <div className="flex items-center gap-2">
-                      {t.invoice_number}
-                      {t.is_retensi && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500 text-white"><Percent className="h-3 w-3 inline mr-0.5" />RETENSI</span>}
-                      {t.parent_tagihan_id && <Link2 className="h-3 w-3 text-slate-400" />}
-                    </div>
-                  </TableCell>
-                  <TableCell>{t.client_name}</TableCell>
-                  <TableCell className="text-slate-600 text-sm">
-                    {(t.items && t.items.length > 0) ? (
-                      <div className="space-y-1">
-                        {t.items.map((it, i) => {
-                          const detail = (it.description || "").split(" - ")[0];
-                          return (
-                            <div key={i} className="whitespace-normal leading-snug" data-testid={`tagihan-proj-line-${t.id}-${i}`}>
-                              <span className="font-semibold text-slate-900">{projName(it.project_id)}</span>
-                              {detail && <span className={it.is_retensi ? "text-orange-700" : "text-slate-500"}> · {detail}</span>}
-                              <span className="text-slate-400 font-mono tabular"> · {formatIDR(it.amount || 0)}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      projectIds.length === 0 ? "-" : projectIds.map(projName).join(", ")
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular">{formatIDR(t.total)}</TableCell>
-                  <TableCell>{formatDate(t.due_date)}</TableCell>
-                  <TableCell><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor[status] || statusColor.draft}`}>{(status || "draft").replace("_", " ").toUpperCase()}</span></TableCell>
-                  <TableCell className="text-right">
-                    {(t.paid_amount || 0) >= (t.total || 0) ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700" data-testid={`tagihan-paid-badge-${t.id}`}>
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Sudah Terbayar
-                      </span>
-                    ) : canWrite ? (
-                      <Button size="sm" className="h-8 rounded-full bg-green-600 hover:bg-green-700 text-white" onClick={() => markPaid(t)} data-testid={`tagihan-markpaid-${t.id}`}>
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Sudah Terbayar
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-slate-400">Belum Dibayar</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {items.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-8">Belum ada tagihan.</TableCell></TableRow>}
-          </TableBody>
-        </Table>
-      </Card>
+      {renderSection("BELUM LUNAS", items.filter(t => (t.paid_amount || 0) < (t.total || 0)), "Semua tagihan sudah lunas.", "unpaid")}
+      {renderSection("SUDAH LUNAS", items.filter(t => (t.paid_amount || 0) >= (t.total || 0)), "Belum ada tagihan yang lunas.", "paid")}
     </div>
   );
+
+  function renderSection(title, list, emptyText, key) {
+    return (
+      <div className="space-y-2" data-testid={`tagihan-section-${key}`}>
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${key === "unpaid" ? "bg-orange-500" : "bg-green-500"}`} />
+          <span className="text-xs font-semibold tracking-widest text-slate-500">TAGIHAN {title} · {list.length}</span>
+        </div>
+        <Card className="overflow-hidden bg-white border-slate-200">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead>Invoice</TableHead>
+                <TableHead>Klien</TableHead>
+                <TableHead>Proyek</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Jatuh Tempo</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Pembayaran</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.map(t => {
+                const status = t.due_date < today && t.paid_amount < t.total && t.status !== "lunas" ? "jatuh_tempo" : t.status;
+                const projectIds = t.project_ids || (t.project_id ? [t.project_id] : []);
+                return (
+                  <TableRow key={t.id} data-testid={`tagihan-row-${t.id}`} className={t.is_retensi ? "bg-orange-50/40" : ""}>
+                    <TableCell className="font-mono font-semibold">
+                      <div className="flex items-center gap-2">
+                        {t.invoice_number}
+                        {t.is_retensi && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500 text-white"><Percent className="h-3 w-3 inline mr-0.5" />RETENSI</span>}
+                        {t.parent_tagihan_id && <Link2 className="h-3 w-3 text-slate-400" />}
+                      </div>
+                    </TableCell>
+                    <TableCell>{t.client_name}</TableCell>
+                    <TableCell className="text-slate-600 text-sm">
+                      {(t.items && t.items.length > 0) ? (
+                        <div className="space-y-1">
+                          {t.items.map((it, i) => {
+                            const detail = (it.description || "").split(" - ")[0];
+                            return (
+                              <div key={i} className="whitespace-normal leading-snug" data-testid={`tagihan-proj-line-${t.id}-${i}`}>
+                                <span className="font-semibold text-slate-900">{projName(it.project_id)}</span>
+                                {detail && <span className={it.is_retensi ? "text-orange-700" : "text-slate-500"}> · {detail}</span>}
+                                <span className="text-slate-400 font-mono tabular"> · {formatIDR(it.amount || 0)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        projectIds.length === 0 ? "-" : projectIds.map(projName).join(", ")
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular">{formatIDR(t.total)}</TableCell>
+                    <TableCell>{formatDate(t.due_date)}</TableCell>
+                    <TableCell><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColor[status] || statusColor.draft}`}>{(status || "draft").replace("_", " ").toUpperCase()}</span></TableCell>
+                    <TableCell className="text-right">
+                      {(t.paid_amount || 0) >= (t.total || 0) ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700" data-testid={`tagihan-paid-badge-${t.id}`}>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Sudah Terbayar
+                        </span>
+                      ) : canWrite ? (
+                        <Button size="sm" className="h-8 rounded-full bg-green-600 hover:bg-green-700 text-white" onClick={() => markPaid(t)} data-testid={`tagihan-markpaid-${t.id}`}>
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Sudah Terbayar
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-slate-400">Belum Dibayar</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {list.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-8">{emptyText}</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
+    );
+  }
 }

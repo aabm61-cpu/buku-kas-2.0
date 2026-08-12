@@ -66,6 +66,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Tabel Pembayaran Tim (12 Feb 2026): urutan kolom Nama Anggota → Jumlah Pembayaran (manual) → Kasbon (otomatis) → Pengurangan (otomatis = pembayaran − kasbon, `tp-net-{uid}`) → Tanggal. Backend batch: `net = amount - kasbon_total`.
 - [x] Visual edit Pembayaran Tim (12 Feb 2026): kolom jadi Hasil/Kasbon/Diterima, kolom Tanggal dihapus dari UI (tetap tersimpan otomatis), judul dialog = nama proyek - jenis pekerjaan - keterangan.
 - [x] Kolom Klien di tabel proyek (12 Feb 2026): di kanan kolom Lokasi pada tab berjalan & selesai, terisi otomatis dari `client_name` proyek (`proj-client-{id}`).
+- [x] Menu Tagihan dua bagian (12 Feb 2026): tabel dipisah — atas "TAGIHAN BELUM LUNAS" (`tagihan-section-unpaid`), bawah "TAGIHAN SUDAH LUNAS" (`tagihan-section-paid`), berdasarkan paid_amount >= total.
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)
