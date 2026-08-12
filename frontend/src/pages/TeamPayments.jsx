@@ -139,17 +139,20 @@ export default function TeamPayments() {
       <Dialog open={!!actionLoc} onOpenChange={(v) => !v && setActionLoc(null)}>
         <DialogContent className="bg-white max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Pembayaran Tim — <span className="text-blue-700">{actionLoc?.name}</span></DialogTitle>
+            <DialogTitle>Pembayaran Tim — <span className="text-blue-700">{(() => {
+              const proj = projects.find(p => p.id === actionLoc?.project_id);
+              if (!proj) return actionLoc?.name;
+              return `${proj.name} - ${proj.work_type}${proj.maintenance_notes ? ` - ${proj.maintenance_notes}` : ""}`;
+            })()}</span></DialogTitle>
           </DialogHeader>
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
                   <TableHead>Nama Anggota</TableHead>
-                  <TableHead className="w-44">Jumlah Pembayaran (Rp)</TableHead>
-                  <TableHead className="text-right">Kasbon (Otomatis)</TableHead>
-                  <TableHead className="text-right">Pengurangan</TableHead>
-                  <TableHead className="w-40">Tanggal</TableHead>
+                  <TableHead className="w-44">Hasil</TableHead>
+                  <TableHead className="text-right">Kasbon</TableHead>
+                  <TableHead className="text-right">Diterima</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -171,12 +174,9 @@ export default function TeamPayments() {
                     <TableCell className="text-right font-mono tabular font-bold text-green-700" data-testid={`tp-net-${r.user_id}`}>
                       {formatIDR(Number(r.amount || 0) - r.kasbon_total)}
                     </TableCell>
-                    <TableCell>
-                      <Input type="date" value={r.date} onChange={e => setRow(i, "date", e.target.value)} className="h-9" data-testid={`tp-date-${r.user_id}`} />
-                    </TableCell>
                   </TableRow>
                 ))}
-                {rows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-6">Tidak ada anggota tim di buku kas ini.</TableCell></TableRow>}
+                {rows.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-slate-500 py-6">Tidak ada anggota tim di buku kas ini.</TableCell></TableRow>}
               </TableBody>
             </Table>
           </div>
