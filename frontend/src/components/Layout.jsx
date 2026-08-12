@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, FolderKanban, MapPin, Activity as ActivityIcon,
   FileText, BookOpen, Coins, Wallet, History as HistoryIcon, UserPlus,
-  HardHat, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, KeyRound,
+  HardHat, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, KeyRound, Building2,
 } from "lucide-react";
 import { roleLabel } from "@/lib/format";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
@@ -13,6 +13,7 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["owner", "penagihan", "bendahara", "tim"] },
   { to: "/users", label: "User", icon: Users, roles: ["owner"] },
+  { to: "/clients", label: "Klien", icon: Building2, roles: ["owner"] },
   { to: "/projects", label: "Proyek", icon: FolderKanban, roles: ["owner", "penagihan"] },
   { to: "/locations", label: "Lokasi", icon: MapPin, roles: ["owner"] },
   { to: "/tagihan", label: "Tagihan", icon: FileText, roles: ["owner", "penagihan", "bendahara"] },

@@ -238,16 +238,16 @@ function ProjectRow({ p, showComplete, canReopen, onDetail, onComplete, onReopen
   const ws = WORK_STATUS[p.work_status] || WORK_STATUS.belum_mulai;
   return (
     <TableRow data-testid={`proj-row-${p.id}`}>
-      <TableCell className="font-semibold text-slate-900">
-        {p.name}
-        {p.work_type === "Maintenance" && p.maintenance_notes && (
-          <div className="text-[10px] text-slate-500 font-normal italic mt-0.5 max-w-[280px] truncate" title={p.maintenance_notes}>{p.maintenance_notes}</div>
-        )}
-      </TableCell>
       <TableCell>
-        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${WORK_TYPE_COLOR[p.work_type] || "bg-slate-100 text-slate-700"}`}>
-          <Briefcase className="h-3 w-3 inline mr-1" />{p.work_type || "-"}
-        </span>
+        <div className="font-semibold text-slate-900" data-testid={`proj-name-${p.id}`}>{p.name}</div>
+        <div className="mt-1">
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${WORK_TYPE_COLOR[p.work_type] || "bg-slate-100 text-slate-700"}`} data-testid={`proj-worktype-${p.id}`}>
+            <Briefcase className="h-3 w-3 inline mr-1" />{p.work_type || "-"}
+          </span>
+        </div>
+        {p.work_type === "Maintenance" && p.maintenance_notes && (
+          <div className="text-[10px] text-slate-500 font-normal italic mt-1 max-w-[280px] truncate" title={p.maintenance_notes}>{p.maintenance_notes}</div>
+        )}
       </TableCell>
       <TableCell>
         <span
@@ -332,8 +332,7 @@ export default function ProjectsTable() {
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">
-              <TableHead>Nama Lokasi</TableHead>
-              <TableHead>Jenis Pekerjaan</TableHead>
+              <TableHead>Nama Lokasi & Jenis Pekerjaan</TableHead>
               <TableHead>Status Pekerjaan</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
@@ -352,7 +351,7 @@ export default function ProjectsTable() {
             ))}
             {list.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={3} className="text-center py-8 text-slate-500">
                   {showComplete ? "Belum ada proyek berjalan." : "Belum ada proyek selesai."}
                 </TableCell>
               </TableRow>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ const emptyForm = { name: "", work_type: "Renov", client_name: "", maintenance_n
 export default function QuickAddProject({ onCreated }) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [clients, setClients] = useState([]);
+  useEffect(() => { api.get("/clients").then(r => setClients(r.data)).catch(() => {}); }, []);
   const needsNotes = form.work_type === "Maintenance" || form.work_type === "Addwork";
   const isMaintenance = form.work_type === "Maintenance";
 
@@ -76,15 +78,15 @@ export default function QuickAddProject({ onCreated }) {
             </div>
             <div>
               <Label>Nama Klien <span className="text-red-500">*</span></Label>
-              <Input
-                data-testid="quick-project-client-input"
-                value={form.client_name}
-                onChange={e => setForm({ ...form, client_name: upper(e.target.value) })}
-                placeholder="MIS. PT MITRA JAYA"
-                className="h-11 mt-1.5 uppercase"
-                autoComplete="off"
-                required
-              />
+              <Select value={form.client_name} onValueChange={v => setForm({ ...form, client_name: v })}>
+                <SelectTrigger data-testid="quick-project-client-select" className="h-11 mt-1.5">
+                  <SelectValue placeholder={clients.length === 0 ? "Belum ada klien — tambahkan di menu Klien" : "Pilih klien"} />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  {clients.length === 0 && <div className="p-3 text-sm text-slate-500 text-center">Belum ada data klien.<br />Owner dapat menambah di menu Klien.</div>}
+                  {clients.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

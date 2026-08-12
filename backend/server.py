@@ -322,6 +322,36 @@ async def delete_user(uid: str, user=Depends(require_role("owner"))):
     await log_activity(user, "delete", "user", uid)
     return {"ok": True}
 
+# ---------------- Clients (master data) ----------------
+class ClientIn(BaseModel):
+    name: str
+
+@api.get("/clients")
+async def list_clients(user=Depends(get_current_user)):
+    return [clean_doc(c) async for c in db.clients.find({}).sort("name", 1)]
+
+@api.post("/clients")
+async def create_client(payload: ClientIn, user=Depends(require_role("owner"))):
+    name = payload.name.strip().upper()
+    if not name:
+        raise HTTPException(400, "Nama klien wajib diisi")
+    exists = await db.clients.find_one({"name": name})
+    if exists:
+        raise HTTPException(400, "Nama klien sudah ada")
+    doc = {"id": new_id(), "name": name, "created_at": now_iso(), "created_by": user["id"]}
+    await db.clients.insert_one(doc)
+    await log_activity(user, "create", "client", doc["id"], f"Tambah klien {name}")
+    return clean_doc(doc)
+
+@api.delete("/clients/{cid}")
+async def delete_client(cid: str, user=Depends(require_role("owner"))):
+    res = await db.clients.delete_one({"id": cid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Klien tidak ditemukan")
+    await log_activity(user, "delete", "client", cid)
+    return {"ok": True}
+
+
 # ---------------- Projects ----------------
 @api.get("/projects")
 async def list_projects(user=Depends(get_current_user)):
