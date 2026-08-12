@@ -589,10 +589,17 @@ async def bukukas_history(user=Depends(get_current_user)):
         team = []
         async for a in db.location_assignments.find({"location_id": l["id"]}):
             u = await db.users.find_one({"id": a["user_id"]})
+            # kasbon total per member from cashbook (category Kasbon)
+            kasbon_total = 0.0
+            async for cb in db.cashbook.find({"location_id": l["id"], "category": "Kasbon"}):
+                attributed = cb.get("kasbon_user_id") or cb.get("user_id")
+                if attributed == a["user_id"]:
+                    kasbon_total += float(cb.get("amount") or 0)
             team.append({
                 "user_id": a["user_id"],
                 "name": (u or {}).get("name") or (u or {}).get("username") or "-",
                 "role_type": a.get("role_type", "viewer"),
+                "kasbon_total": kasbon_total,
             })
         team.sort(key=lambda m: 0 if m["role_type"] == "pic" else 1)
         entry["team"] = team
@@ -855,6 +862,43 @@ async def delete_tagihan(tid: str, user=Depends(require_role("owner", "penagihan
 async def list_team_payments(location_id: Optional[str] = None, user=Depends(require_role("owner", "bendahara"))):
     q = {"location_id": location_id} if location_id else {}
     return [clean_doc(p) async for p in db.team_payments.find(q).sort("created_at", -1)]
+
+class TeamPaymentLine(BaseModel):
+    user_id: str
+    user_name: str = ""
+    kasbon_total: float = 0
+    amount: float = 0
+    date: Optional[str] = None
+
+class TeamPaymentBatch(BaseModel):
+    location_id: str
+    payments: List[TeamPaymentLine]
+
+@api.post("/team-payments/batch")
+async def save_team_payments_batch(payload: TeamPaymentBatch, user=Depends(require_role("owner", "bendahara"))):
+    saved = 0
+    for line in payload.payments:
+        if line.amount <= 0:
+            continue
+        fields = {
+            "location_id": payload.location_id,
+            "user_id": line.user_id,
+            "user_name": line.user_name,
+            "kasbon_total": line.kasbon_total,
+            "amount": line.amount,
+            "net": line.amount,
+            "date": line.date or now_iso()[:10],
+            "paid": True,
+            "created_by": user["id"],
+        }
+        existing = await db.team_payments.find_one({"location_id": payload.location_id, "user_id": line.user_id})
+        if existing:
+            await db.team_payments.update_one({"id": existing["id"]}, {"$set": {**fields, "updated_at": now_iso()}})
+        else:
+            await db.team_payments.insert_one({"id": new_id(), "created_at": now_iso(), **fields})
+        saved += 1
+    await log_activity(user, "create", "team_payment", payload.location_id, f"Pembayaran tim {saved} anggota")
+    return {"ok": True, "saved": saved}
 
 @api.post("/team-payments")
 async def create_team_payment(payload: TeamPaymentIn, user=Depends(require_role("owner", "bendahara"))):
