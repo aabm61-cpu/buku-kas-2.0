@@ -18,7 +18,6 @@ export default function QuickAddProject({ onCreated }) {
   const [clients, setClients] = useState([]);
   useEffect(() => { api.get("/clients").then(r => setClients(r.data)).catch(() => {}); }, []);
   const needsNotes = form.work_type === "Maintenance" || form.work_type === "Addwork";
-  const isMaintenance = form.work_type === "Maintenance";
 
   // Auto-uppercase every character typed into any text field
   const upper = (v) => (v || "").toUpperCase();
@@ -27,7 +26,7 @@ export default function QuickAddProject({ onCreated }) {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Nama HUB/SOC wajib diisi"); return; }
     if (!form.client_name.trim()) { toast.error("Nama Klien wajib diisi"); return; }
-    if (isMaintenance && !form.maintenance_notes.trim()) { toast.error("Keterangan pekerjaan Maintenance wajib diisi"); return; }
+    if (needsNotes && !form.maintenance_notes.trim()) { toast.error(`Keterangan pekerjaan ${form.work_type} wajib diisi`); return; }
     setSaving(true);
     try {
       await api.post("/projects", {
@@ -91,9 +90,9 @@ export default function QuickAddProject({ onCreated }) {
           </div>
 
           {needsNotes && (
-            <div className={`p-3 rounded-lg border ${isMaintenance ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"}`}>
-              <Label className={`flex items-center gap-1.5 ${isMaintenance ? "text-green-800" : "text-orange-800"}`}>
-                <Wrench className="h-3.5 w-3.5" /> Keterangan Pekerjaan {form.work_type} {isMaintenance && <span className="text-red-500">*</span>}
+            <div className="p-3 rounded-lg border bg-green-50 border-green-200">
+              <Label className="flex items-center gap-1.5 text-green-800">
+                <Wrench className="h-3.5 w-3.5" /> Keterangan Pekerjaan {form.work_type} <span className="text-red-500">*</span>
               </Label>
               <Textarea
                 data-testid="quick-project-maintenance-notes"
@@ -101,7 +100,7 @@ export default function QuickAddProject({ onCreated }) {
                 onChange={e => setForm({ ...form, maintenance_notes: upper(e.target.value) })}
                 placeholder="DETAIL PEKERJAAN: MIS. PERBAIKAN AC, PENGECATAN ULANG, GANTI LAMPU…"
                 className="mt-1.5 min-h-[70px] text-sm uppercase"
-                required={isMaintenance}
+                required
               />
             </div>
           )}

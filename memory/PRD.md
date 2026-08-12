@@ -60,6 +60,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Bayaran Tim rework (12 Feb 2026): daftar proyek dari buku kas SELESAI (`/bukukas/history`, kini team[] punya `kasbon_total` per anggota dari cashbook kategori Kasbon dengan fallback legacy user_id). Tombol Aksi per proyek → dialog tabel: nama anggota, kasbon otomatis, tanggal auto (editable), jumlah pembayaran manual. Simpan via `POST /api/team-payments/batch` (upsert per lokasi+user). Status badge "n/total DIBAYAR". Form lama (periode/hari/rate), export CSV, dan tombol hapus dihilangkan.
 - [x] Master data Klien (12 Feb 2026): menu "Klien" (owner only, route `/clients`, `Clients.jsx`) — tambah/hapus nama klien. Backend: `GET/POST/DELETE /api/clients` (koleksi `clients`, nama unik uppercase). Form Input Proyek Baru: Nama Klien kini dropdown dari master klien (`quick-project-client-select`).
 - [x] Tampilan baris proyek (12 Feb 2026): kolom digabung — nama proyek baris 1, badge jenis pekerjaan baris 2 (header "Nama Lokasi & Jenis Pekerjaan").
+- [x] Keterangan Addwork wajib (12 Feb 2026): field Keterangan di form Input Proyek Baru kini WAJIB untuk Addwork & Maintenance, tampilan kotak hijau seragam untuk keduanya.
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)
