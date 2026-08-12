@@ -61,6 +61,8 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Master data Klien (12 Feb 2026): menu "Klien" (owner only, route `/clients`, `Clients.jsx`) — tambah/hapus nama klien. Backend: `GET/POST/DELETE /api/clients` (koleksi `clients`, nama unik uppercase). Form Input Proyek Baru: Nama Klien kini dropdown dari master klien (`quick-project-client-select`).
 - [x] Tampilan baris proyek (12 Feb 2026): kolom digabung — nama proyek baris 1, badge jenis pekerjaan baris 2 (header "Nama Lokasi & Jenis Pekerjaan").
 - [x] Keterangan Addwork wajib (12 Feb 2026): field Keterangan di form Input Proyek Baru kini WAJIB untuk Addwork & Maintenance, tampilan kotak hijau seragam untuk keduanya.
+- [x] Visual edit (12 Feb 2026): textarea Keterangan dihapus dari dialog detail proyek (beserta payload `keterangan` di save).
+- [x] Keterangan Addwork di baris proyek (12 Feb 2026): keterangan (`maintenance_notes`) kini tampil di baris tabel proyek berjalan & selesai untuk Addwork, sama seperti Maintenance (teks italic di bawah badge).
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)

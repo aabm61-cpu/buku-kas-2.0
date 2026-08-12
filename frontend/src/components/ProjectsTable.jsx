@@ -238,7 +238,7 @@ function ProjectRow({ p, showComplete, canReopen, onDetail, onComplete, onReopen
             <Briefcase className="h-3 w-3 inline mr-1" />{p.work_type || "-"}
           </span>
         </div>
-        {p.work_type === "Maintenance" && p.maintenance_notes && (
+        {(p.work_type === "Maintenance" || p.work_type === "Addwork") && p.maintenance_notes && (
           <div className="text-[10px] text-slate-500 font-normal italic mt-1 max-w-[280px] truncate" title={p.maintenance_notes}>{p.maintenance_notes}</div>
         )}
       </TableCell>
