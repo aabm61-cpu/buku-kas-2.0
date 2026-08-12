@@ -916,7 +916,7 @@ async def save_team_payments_batch(payload: TeamPaymentBatch, user=Depends(requi
             "user_name": line.user_name,
             "kasbon_total": line.kasbon_total,
             "amount": line.amount,
-            "net": line.amount,
+            "net": line.amount - line.kasbon_total,
             "date": line.date or now_iso()[:10],
             "paid": True,
             "created_by": user["id"],

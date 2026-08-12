@@ -146,9 +146,10 @@ export default function TeamPayments() {
               <TableHeader>
                 <TableRow className="bg-slate-50">
                   <TableHead>Nama Anggota</TableHead>
-                  <TableHead className="text-right">Kasbon (Otomatis)</TableHead>
-                  <TableHead className="w-40">Tanggal</TableHead>
                   <TableHead className="w-44">Jumlah Pembayaran (Rp)</TableHead>
+                  <TableHead className="text-right">Kasbon (Otomatis)</TableHead>
+                  <TableHead className="text-right">Pengurangan</TableHead>
+                  <TableHead className="w-40">Tanggal</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -161,18 +162,21 @@ export default function TeamPayments() {
                         {r.already_paid && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" title="Sudah pernah disimpan" />}
                       </span>
                     </TableCell>
+                    <TableCell>
+                      <Input type="number" placeholder="0" value={r.amount} onChange={e => setRow(i, "amount", e.target.value)} className="h-9 font-mono tabular" data-testid={`tp-amount-${r.user_id}`} />
+                    </TableCell>
                     <TableCell className="text-right font-mono tabular text-orange-700" data-testid={`tp-kasbon-${r.user_id}`}>
                       {formatIDR(r.kasbon_total)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular font-bold text-green-700" data-testid={`tp-net-${r.user_id}`}>
+                      {formatIDR(Number(r.amount || 0) - r.kasbon_total)}
                     </TableCell>
                     <TableCell>
                       <Input type="date" value={r.date} onChange={e => setRow(i, "date", e.target.value)} className="h-9" data-testid={`tp-date-${r.user_id}`} />
                     </TableCell>
-                    <TableCell>
-                      <Input type="number" placeholder="0" value={r.amount} onChange={e => setRow(i, "amount", e.target.value)} className="h-9 font-mono tabular" data-testid={`tp-amount-${r.user_id}`} />
-                    </TableCell>
                   </TableRow>
                 ))}
-                {rows.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-slate-500 py-6">Tidak ada anggota tim di buku kas ini.</TableCell></TableRow>}
+                {rows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-6">Tidak ada anggota tim di buku kas ini.</TableCell></TableRow>}
               </TableBody>
             </Table>
           </div>

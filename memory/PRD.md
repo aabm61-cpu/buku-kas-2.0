@@ -63,6 +63,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Keterangan Addwork wajib (12 Feb 2026): field Keterangan di form Input Proyek Baru kini WAJIB untuk Addwork & Maintenance, tampilan kotak hijau seragam untuk keduanya.
 - [x] Visual edit (12 Feb 2026): textarea Keterangan dihapus dari dialog detail proyek (beserta payload `keterangan` di save).
 - [x] Keterangan Addwork di baris proyek (12 Feb 2026): keterangan (`maintenance_notes`) kini tampil di baris tabel proyek berjalan & selesai untuk Addwork, sama seperti Maintenance (teks italic di bawah badge).
+- [x] Tabel Pembayaran Tim (12 Feb 2026): urutan kolom Nama Anggota → Jumlah Pembayaran (manual) → Kasbon (otomatis) → Pengurangan (otomatis = pembayaran − kasbon, `tp-net-{uid}`) → Tanggal. Backend batch: `net = amount - kasbon_total`.
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)
