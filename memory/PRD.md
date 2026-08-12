@@ -67,6 +67,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Visual edit Pembayaran Tim (12 Feb 2026): kolom jadi Hasil/Kasbon/Diterima, kolom Tanggal dihapus dari UI (tetap tersimpan otomatis), judul dialog = nama proyek - jenis pekerjaan - keterangan.
 - [x] Kolom Klien di tabel proyek (12 Feb 2026): di kanan kolom Lokasi pada tab berjalan & selesai, terisi otomatis dari `client_name` proyek (`proj-client-{id}`).
 - [x] Menu Tagihan dua bagian (12 Feb 2026): tabel dipisah — atas "TAGIHAN BELUM LUNAS" (`tagihan-section-unpaid`), bawah "TAGIHAN SUDAH LUNAS" (`tagihan-section-paid`), berdasarkan paid_amount >= total.
+- [x] Riwayat Buku Kas (12 Feb 2026): kolom Nama Buku Kas & Pencatatan dihapus; tombol "Lihat Detail" (`history-detail-btn-{id}`) membuka dialog detail pencatatan (`GET /cashbook?location_id=`) berisi tanggal, tipe, kategori, keterangan (termasuk nama pengaju kasbon), nominal, dan thumbnail nota yang bisa diperbesar.
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)
