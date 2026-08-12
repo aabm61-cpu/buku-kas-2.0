@@ -64,6 +64,8 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Visual edit (12 Feb 2026): textarea Keterangan dihapus dari dialog detail proyek (beserta payload `keterangan` di save).
 - [x] Keterangan Addwork di baris proyek (12 Feb 2026): keterangan (`maintenance_notes`) kini tampil di baris tabel proyek berjalan & selesai untuk Addwork, sama seperti Maintenance (teks italic di bawah badge).
 - [x] Tabel Pembayaran Tim (12 Feb 2026): urutan kolom Nama Anggota → Jumlah Pembayaran (manual) → Kasbon (otomatis) → Pengurangan (otomatis = pembayaran − kasbon, `tp-net-{uid}`) → Tanggal. Backend batch: `net = amount - kasbon_total`.
+- [x] Visual edit Pembayaran Tim (12 Feb 2026): kolom jadi Hasil/Kasbon/Diterima, kolom Tanggal dihapus dari UI (tetap tersimpan otomatis), judul dialog = nama proyek - jenis pekerjaan - keterangan.
+- [x] Kolom Klien di tabel proyek (12 Feb 2026): di kanan kolom Lokasi pada tab berjalan & selesai, terisi otomatis dari `client_name` proyek (`proj-client-{id}`).
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)

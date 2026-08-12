@@ -242,6 +242,7 @@ function ProjectRow({ p, showComplete, canReopen, onDetail, onComplete, onReopen
           <div className="text-[10px] text-slate-500 font-normal italic mt-1 max-w-[280px] truncate" title={p.maintenance_notes}>{p.maintenance_notes}</div>
         )}
       </TableCell>
+      <TableCell className="text-slate-700" data-testid={`proj-client-${p.id}`}>{p.client_name || "-"}</TableCell>
       <TableCell>
         <span
           className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${ws.cls}`}
@@ -326,6 +327,7 @@ export default function ProjectsTable() {
           <TableHeader>
             <TableRow className="bg-slate-50">
               <TableHead>Nama Lokasi & Jenis Pekerjaan</TableHead>
+              <TableHead>Klien</TableHead>
               <TableHead>Status Pekerjaan</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
@@ -344,7 +346,7 @@ export default function ProjectsTable() {
             ))}
             {list.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={4} className="text-center py-8 text-slate-500">
                   {showComplete ? "Belum ada proyek berjalan." : "Belum ada proyek selesai."}
                 </TableCell>
               </TableRow>
