@@ -27,3 +27,9 @@ export const roleLabel = (r) => ({
 }[r] || r);
 
 export const roleChip = (r) => `chip-${r}`;
+
+export const monthLabel = (ym) => {
+  const [y, m] = ym.split("-");
+  const names = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  return `${names[Number(m) - 1]} ${y}`;
+};

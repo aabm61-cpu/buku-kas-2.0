@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2 } from "lucide-react";
-import { formatIDR, formatDate } from "@/lib/format";
+import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays } from "lucide-react";
+import { formatIDR, formatDate, monthLabel } from "@/lib/format";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -18,6 +19,7 @@ export default function TeamPayments() {
   const [actionLoc, setActionLoc] = useState(null);
   const [rows, setRows] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [month, setMonth] = useState("all");
 
   const load = async () => {
     const [h, p, tp] = await Promise.all([
@@ -33,6 +35,9 @@ export default function TeamPayments() {
 
   const projName = (id) => projects.find(p => p.id === id)?.name || "-";
   const paidCount = (locId) => payments.filter(p => p.location_id === locId && p.paid).length;
+
+  const months = [...new Set(history.map(l => (l.closed_at || "").slice(0, 7)).filter(Boolean))].sort().reverse();
+  const filteredHistory = month === "all" ? history : history.filter(l => (l.closed_at || "").slice(0, 7) === month);
 
   const openAction = (loc) => {
     const existing = payments.filter(p => p.location_id === loc.id);
@@ -82,10 +87,22 @@ export default function TeamPayments() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="text-xs tracking-widest text-slate-500 mb-2">PENGHITUNGAN BAYARAN TIM</div>
-        <h1 className="font-display font-extrabold text-3xl text-slate-900">Pembayaran Tim</h1>
-        <p className="text-slate-500 mt-1">Proyek dengan buku kas selesai. Klik Aksi untuk mengisi pembayaran setiap anggota tim — kasbon terhitung otomatis dari buku kas.</p>
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <div className="text-xs tracking-widest text-slate-500 mb-2">PENGHITUNGAN BAYARAN TIM</div>
+          <h1 className="font-display font-extrabold text-3xl text-slate-900">Pembayaran Tim</h1>
+          <p className="text-slate-500 mt-1">Proyek dengan buku kas selesai. Klik Aksi untuk mengisi pembayaran setiap anggota tim — kasbon terhitung otomatis dari buku kas.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-slate-500" />
+          <Select value={month} onValueChange={setMonth}>
+            <SelectTrigger className="w-48 bg-white" data-testid="tp-month-filter"><SelectValue /></SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value="all">Semua Bulan</SelectItem>
+              {months.map(m => <SelectItem key={m} value={m} data-testid={`tp-month-opt-${m}`}>{monthLabel(m)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Card className="overflow-hidden bg-white border-slate-200">
@@ -101,7 +118,7 @@ export default function TeamPayments() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {history.map(loc => {
+            {filteredHistory.map(loc => {
               const paid = paidCount(loc.id);
               const total = (loc.team || []).length;
               return (
@@ -129,8 +146,8 @@ export default function TeamPayments() {
                 </TableRow>
               );
             })}
-            {history.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8"><Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />Belum ada buku kas yang diselesaikan.</TableCell></TableRow>
+            {filteredHistory.length === 0 && (
+              <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8"><Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />{month === "all" ? "Belum ada buku kas yang diselesaikan." : "Tidak ada data pada bulan ini."}</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
