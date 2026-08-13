@@ -69,6 +69,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Menu Tagihan dua bagian (12 Feb 2026): tabel dipisah — atas "TAGIHAN BELUM LUNAS" (`tagihan-section-unpaid`), bawah "TAGIHAN SUDAH LUNAS" (`tagihan-section-paid`), berdasarkan paid_amount >= total.
 - [x] Riwayat Buku Kas (12 Feb 2026): kolom Nama Buku Kas & Pencatatan dihapus; tombol "Lihat Detail" (`history-detail-btn-{id}`) membuka dialog detail pencatatan (`GET /cashbook?location_id=`) berisi tanggal, tipe, kategori, keterangan (termasuk nama pengaju kasbon), nominal, dan thumbnail nota yang bisa diperbesar.
 - [x] Termin langsung tampil (13 Feb 2026): dropdown "Termin Ada/Tidak Ada" dihapus; saat SPK dipilih langsung muncul Termin (1/2/3) + Retensi (Ada/Tidak Ada). `has_termin` kini otomatis di-set dari terminCount > 0 saat simpan (kompatibel dengan filter Tagihan).
+- [x] Dropdown Klien di form Tagihan Baru (13 Feb 2026): field Nama Klien diganti Select berisi daftar klien master (`GET /api/clients`, testid `tagihan-client-select`). Setelah klien dipilih, daftar proyek selesai terfilter hanya milik klien tsb (match `project.client_name`); ganti klien me-reset pilihan proyek (selections). Empty state: "Pilih klien terlebih dahulu..." / "Tidak ada proyek selesai milik klien ini...".
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)

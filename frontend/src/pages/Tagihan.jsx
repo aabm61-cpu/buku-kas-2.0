@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Plus, AlertTriangle, Percent, Link2, CheckCircle2 } from "lucide-react";
@@ -31,12 +32,13 @@ export default function Tagihan() {
   const canWrite = ["owner", "penagihan"].includes(user.role);
   const [items, setItems] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [clients, setClients] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty());
 
   const load = async () => {
-    const [t, p] = await Promise.all([api.get("/tagihan"), api.get("/projects")]);
-    setItems(t.data); setProjects(p.data);
+    const [t, p, c] = await Promise.all([api.get("/tagihan"), api.get("/projects"), api.get("/clients")]);
+    setItems(t.data); setProjects(p.data); setClients(c.data);
   };
   useEffect(() => { load(); }, []);
 
@@ -71,11 +73,18 @@ export default function Tagihan() {
   const retensiAvailable = (p) => projHasRetensi(p) && !billed[p.id]?.retensi;
   const fullAvailable = (p) => !projHasTermin(p) && !billed[p.id]?.full;
 
-  // Proyek tampil hanya jika masih ada yang bisa ditagihkan
+  // Proyek tampil hanya jika masih ada yang bisa ditagihkan, dan sesuai klien terpilih
   const billableProjects = useMemo(
-    () => completedProjects.filter(p => (projHasTermin(p) ? availableTermins(p).length > 0 : fullAvailable(p)) || retensiAvailable(p)),
-    [completedProjects, billed]
+    () => completedProjects
+      .filter(p => form.client_name && p.client_name === form.client_name)
+      .filter(p => (projHasTermin(p) ? availableTermins(p).length > 0 : fullAvailable(p)) || retensiAvailable(p)),
+    [completedProjects, billed, form.client_name]
   );
+
+  const selectClient = (name) => {
+    // Reset pilihan proyek saat klien diganti
+    setForm({ ...form, client_name: name, selections: {} });
+  };
 
   const toggleProject = (p) => {
     const sel = { ...form.selections };
@@ -168,13 +177,23 @@ export default function Tagihan() {
                 <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
                   <div className="grid grid-cols-2 gap-3">
                     <div><Label>Nomor Invoice</Label><Input data-testid="tagihan-number-input" value={form.invoice_number} onChange={e => setForm({ ...form, invoice_number: e.target.value })} placeholder="INV-2026-001" /></div>
-                    <div><Label>Klien</Label><Input data-testid="tagihan-client-input" value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} /></div>
+                    <div>
+                      <Label>Klien</Label>
+                      <Select value={form.client_name} onValueChange={selectClient}>
+                        <SelectTrigger data-testid="tagihan-client-select"><SelectValue placeholder="Pilih klien" /></SelectTrigger>
+                        <SelectContent className="bg-white">
+                          {clients.map(c => <SelectItem key={c.id} value={c.name} data-testid={`tagihan-client-opt-${c.id}`}>{c.name}</SelectItem>)}
+                          {clients.length === 0 && <div className="px-3 py-2 text-sm text-slate-500">Belum ada klien. Tambahkan di menu Klien.</div>}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <div>
                     <Label className="mb-2 block">Pilih Proyek Selesai (bisa lebih dari satu)</Label>
                     <div className="border border-slate-200 rounded-lg p-3 max-h-64 overflow-y-auto space-y-2 bg-slate-50">
-                      {billableProjects.length === 0 && <div className="text-sm text-slate-500">Tidak ada proyek selesai yang bisa ditagihkan.</div>}
+                      {!form.client_name && <div className="text-sm text-slate-500">Pilih klien terlebih dahulu untuk melihat proyek selesai miliknya.</div>}
+                      {form.client_name && billableProjects.length === 0 && <div className="text-sm text-slate-500">Tidak ada proyek selesai milik klien ini yang bisa ditagihkan.</div>}
                       {billableProjects.map(p => {
                         const sel = form.selections[p.id];
                         const val = Number(p.project_value || 0);
