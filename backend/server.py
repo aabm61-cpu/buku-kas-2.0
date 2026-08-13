@@ -889,9 +889,16 @@ async def delete_tagihan(tid: str, user=Depends(require_role("owner", "penagihan
 
 # ---------------- Team Payments ----------------
 @api.get("/team-payments")
-async def list_team_payments(location_id: Optional[str] = None, user=Depends(require_role("owner", "bendahara"))):
+async def list_team_payments(location_id: Optional[str] = None, user=Depends(require_role("owner", "bendahara", "tim"))):
     q = {"location_id": location_id} if location_id else {}
-    return [clean_doc(p) async for p in db.team_payments.find(q).sort("created_at", -1)]
+    if user["role"] == "tim":
+        q["user_id"] = user["id"]  # tim hanya melihat bayaran miliknya sendiri
+    out = [clean_doc(p) async for p in db.team_payments.find(q).sort("created_at", -1)]
+    loc_ids = list({p.get("location_id") for p in out if p.get("location_id")})
+    loc_names = {l["id"]: l.get("name", "") async for l in db.locations.find({"id": {"$in": loc_ids}})}
+    for p in out:
+        p["location_name"] = loc_names.get(p.get("location_id"), "")
+    return out
 
 class TeamPaymentLine(BaseModel):
     user_id: str
