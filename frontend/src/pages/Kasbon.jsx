@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Coins, CheckCircle2, Wallet } from "lucide-react";
+import { Plus, Coins, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatIDR, formatDate } from "@/lib/format";
 
@@ -17,21 +17,15 @@ const empty = () => ({ location_id: "", borrower_user_id: "", amount: "", descri
 
 export default function Kasbon() {
   const { user } = useAuth();
-  const isTim = user.role === "tim";
   const [items, setItems] = useState([]);
   const [locations, setLocations] = useState([]);
   const [users, setUsers] = useState([]);
-  const [myPayments, setMyPayments] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty());
 
   const load = async () => {
     const [k, l, u] = await Promise.all([api.get("/kasbon"), api.get("/locations"), api.get("/users")]);
     setItems(k.data); setLocations(l.data); setUsers(u.data);
-    if (isTim) {
-      const tp = await api.get("/team-payments");
-      setMyPayments(tp.data);
-    }
   };
   useEffect(() => { load(); }, []);
 
@@ -89,46 +83,6 @@ export default function Kasbon() {
         </Dialog>
       </div>
 
-      {isTim && (
-        <div className="space-y-2" data-testid="my-payments-section">
-          <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-blue-700" />
-            <span className="text-xs font-semibold tracking-widest text-slate-500">PEMBAYARAN SAYA · {myPayments.length}</span>
-          </div>
-          <Card className="overflow-hidden bg-white border-slate-200">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Lokasi</TableHead>
-                  <TableHead className="text-right">Hasil</TableHead>
-                  <TableHead className="text-right">Kasbon</TableHead>
-                  <TableHead className="text-right">Diterima</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {myPayments.map(p => (
-                  <TableRow key={p.id} data-testid={`my-payment-row-${p.id}`}>
-                    <TableCell>{formatDate(p.date)}</TableCell>
-                    <TableCell className="font-medium">{p.location_name || locName(p.location_id)}</TableCell>
-                    <TableCell className="text-right font-mono tabular">{formatIDR(p.amount)}</TableCell>
-                    <TableCell className="text-right font-mono tabular text-orange-700">{p.kasbon_total > 0 ? `- ${formatIDR(p.kasbon_total)}` : "-"}</TableCell>
-                    <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(p.net)}</TableCell>
-                  </TableRow>
-                ))}
-                {myPayments.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-8"><Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />Belum ada pembayaran dari Bendahara.</TableCell></TableRow>}
-              </TableBody>
-            </Table>
-          </Card>
-        </div>
-      )}
-
-      {isTim && (
-        <div className="flex items-center gap-2 pt-2">
-          <Coins className="h-4 w-4 text-blue-700" />
-          <span className="text-xs font-semibold tracking-widest text-slate-500">KASBON · {items.length}</span>
-        </div>
-      )}
       <Card className="overflow-hidden bg-white border-slate-200">
         <Table>
           <TableHeader>

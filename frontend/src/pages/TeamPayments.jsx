@@ -84,7 +84,7 @@ export default function TeamPayments() {
     <div className="space-y-6">
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">PENGHITUNGAN BAYARAN TIM</div>
-        <h1 className="font-display font-extrabold text-3xl text-slate-900">Bayaran Tim</h1>
+        <h1 className="font-display font-extrabold text-3xl text-slate-900">Pembayaran Tim</h1>
         <p className="text-slate-500 mt-1">Proyek dengan buku kas selesai. Klik Aksi untuk mengisi pembayaran setiap anggota tim — kasbon terhitung otomatis dari buku kas.</p>
       </div>
 

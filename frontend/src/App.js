@@ -18,6 +18,7 @@ import History from "@/pages/History";
 import HistoryBukuKas from "@/pages/HistoryBukuKas";
 import Team from "@/pages/Team";
 import Clients from "@/pages/Clients";
+import MyPayments from "@/pages/MyPayments";
 import "@/App.css";
 
 function Root() {
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/cashbook" element={<ProtectedRoute roles={["owner", "bendahara", "tim"]}><CashBook /></ProtectedRoute>} />
             <Route path="/kasbon" element={<Kasbon />} />
             <Route path="/team-payments" element={<ProtectedRoute roles={["owner", "bendahara"]}><TeamPayments /></ProtectedRoute>} />
+            <Route path="/my-payments" element={<ProtectedRoute roles={["tim"]}><MyPayments /></ProtectedRoute>} />
             <Route path="/history" element={<History />} />
             <Route path="/history-bukukas" element={<HistoryBukuKas />} />
             <Route path="/team" element={<Team />} />
