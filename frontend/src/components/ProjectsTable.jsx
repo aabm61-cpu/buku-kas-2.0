@@ -47,7 +47,6 @@ function DetailDialog({ project, open, onClose, onSaved }) {
   const retPct = Number(form.retention_percent || 0);
   const retValue = projValue * retPct / 100;
   const isSPK = (form.spk_rab_type || "SPK") === "SPK";
-  const hasTermin = form.has_termin === "ada";
   const hasRetensi = (form.has_retensi || "ada") === "ada";
   const terminCount = Number(form.termin_count || 0);
   const terminPercents = form.termin_percents || [];
@@ -72,7 +71,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
         project_value: Number(form.project_value) || 0,
         retention_percent: Number(form.retention_percent) || 0,
         has_retensi: form.has_retensi || "ada",
-        has_termin: form.has_termin || "tidak_ada",
+        has_termin: (Number(form.termin_count) || 0) > 0 ? "ada" : "tidak_ada",
         termin_count: Number(form.termin_count) || 0,
         termin_percents: (form.termin_percents || []).map(v => Number(v) || 0),
         end_date: form.end_date || null,
@@ -131,7 +130,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className={`grid gap-4 ${isSPK ? "grid-cols-2" : "grid-cols-1"}`}>
+          <div className={`grid gap-4 ${isSPK ? "grid-cols-3" : "grid-cols-1"}`}>
             <div>
               <Label>Nilai Proyek (Rp)</Label>
               <Input data-testid="detail-value" type="number" disabled={readOnly} value={form.project_value ?? 0} onChange={e => setForm({ ...form, project_value: e.target.value })} className="h-11 mt-1.5 font-mono tabular" />
@@ -139,31 +138,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
             </div>
             {isSPK && (
               <div>
-                <Label>Retensi</Label>
-                <Select value={form.has_retensi || "ada"} onValueChange={v => setForm({ ...form, has_retensi: v })}>
-                  <SelectTrigger data-testid="detail-has-retensi" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="ada">Ada</SelectItem>
-                    <SelectItem value="tidak_ada">Tidak Ada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {isSPK && (
-              <div>
                 <Label>Termin</Label>
-                <Select disabled={readOnly} value={form.has_termin || "tidak_ada"} onValueChange={v => setForm({ ...form, has_termin: v })}>
-                  <SelectTrigger data-testid="detail-has-termin" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="ada">Ada</SelectItem>
-                    <SelectItem value="tidak_ada">Tidak Ada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {isSPK && hasTermin && (
-              <div>
-                <Label>Jumlah Termin</Label>
                 <Select disabled={readOnly} value={terminCount ? String(terminCount) : ""} onValueChange={setTerminCount}>
                   <SelectTrigger data-testid="detail-termin-count" className="h-11 mt-1.5"><SelectValue placeholder="Pilih jumlah termin" /></SelectTrigger>
                   <SelectContent className="bg-white">
@@ -172,9 +147,21 @@ function DetailDialog({ project, open, onClose, onSaved }) {
                 </Select>
               </div>
             )}
+            {isSPK && (
+              <div>
+                <Label>Retensi</Label>
+                <Select disabled={readOnly} value={form.has_retensi || "ada"} onValueChange={v => setForm({ ...form, has_retensi: v })}>
+                  <SelectTrigger data-testid="detail-has-retensi" className="h-11 mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="ada">Ada</SelectItem>
+                    <SelectItem value="tidak_ada">Tidak Ada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
-          {isSPK && hasTermin && terminCount > 0 && (
+          {isSPK && terminCount > 0 && (
             <div className="border border-slate-200 rounded-lg overflow-hidden" data-testid="detail-termin-table">
               <Table>
                 <TableHeader>
