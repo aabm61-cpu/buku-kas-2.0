@@ -74,6 +74,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Menu Pembayaran Saya terpisah (13 Feb 2026): menu sidebar baru "Pembayaran Saya" (`/my-payments`, hanya role tim) — halaman `MyPayments.jsx` (testid `my-payments-section`, baris `my-payment-row-{id}`) kolom Tanggal, Lokasi, Hasil, Kasbon (oranye), Diterima (hijau). Section serupa di halaman Kasbon dihapus (dipindah ke menu ini). Menu "Bayaran Tim" di-rename jadi "Pembayaran Tim" (sidebar + judul halaman TeamPayments.jsx).
 - [x] Filter bulan (13 Feb 2026): dropdown filter bulan ("Semua Bulan" + bulan-bulan yang ada di data, label Indonesia via helper `monthLabel` di lib/format.js) di menu Pembayaran Tim (testid `tp-month-filter`, filter berdasar `closed_at` lokasi) dan Pembayaran Saya (testid `mp-month-filter`, filter berdasar `date` pembayaran).
 - [x] Hapus menu Kasbon & Pembayaran (15 Feb 2026): item nav `/kasbon` dihapus dari sidebar semua role, route dihapus dari App.js, file `pages/Kasbon.jsx` dihapus. Backend endpoint `/api/kasbon` tetap ada (tidak diekspos di UI). Kasbon tetap dicatat via Buku Kas (kategori Kasbon) dan tampil di Pembayaran Tim/Pembayaran Saya.
+- [x] Hapus menu Anggota Tim pada admin (15 Feb 2026): item nav `/team` (roles owner) dihapus dari sidebar, route dan import dihapus dari App.js, file `pages/Team.jsx` dihapus. Penambahan anggota tim tetap tersedia via halaman Buku Kas (dialog "Tambah Anggota Tim (Peninjau)").
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)
