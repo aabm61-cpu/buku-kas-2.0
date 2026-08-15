@@ -6,8 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays } from "lucide-react";
+import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays, Hourglass } from "lucide-react";
 import { formatIDR, formatDate, monthLabel } from "@/lib/format";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -38,6 +39,8 @@ export default function TeamPayments() {
 
   const months = [...new Set(history.map(l => (l.closed_at || "").slice(0, 7)).filter(Boolean))].sort().reverse();
   const filteredHistory = month === "all" ? history : history.filter(l => (l.closed_at || "").slice(0, 7) === month);
+  const waitingList = filteredHistory.filter(l => paidCount(l.id) === 0);
+  const readyList = filteredHistory.filter(l => paidCount(l.id) > 0);
 
   const openAction = (loc) => {
     const existing = payments.filter(p => p.location_id === loc.id);
@@ -105,53 +108,24 @@ export default function TeamPayments() {
         </div>
       </div>
 
-      <Card className="overflow-hidden bg-white border-slate-200">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50">
-              <TableHead>Lokasi</TableHead>
-              <TableHead>Proyek</TableHead>
-              <TableHead>Pekerjaan Selesai</TableHead>
-              <TableHead className="text-center">Anggota Tim</TableHead>
-              <TableHead className="text-center">Status Pembayaran</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredHistory.map(loc => {
-              const paid = paidCount(loc.id);
-              const total = (loc.team || []).length;
-              return (
-                <TableRow key={loc.id} data-testid={`tp-loc-row-${loc.id}`}>
-                  <TableCell className="font-semibold text-slate-900">
-                    <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-orange-500" /> {loc.name}</span>
-                  </TableCell>
-                  <TableCell className="text-slate-600">{projName(loc.project_id)}</TableCell>
-                  <TableCell>{formatDate(loc.closed_at)}</TableCell>
-                  <TableCell className="text-center">
-                    <span className="inline-flex items-center gap-1 text-sm text-slate-700"><Users className="h-3.5 w-3.5" /> {total}</span>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {paid > 0 ? (
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">{paid}/{total} DIBAYAR</span>
-                    ) : (
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">BELUM</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" className="h-8 rounded-full bg-blue-700 hover:bg-blue-800" onClick={() => openAction(loc)} data-testid={`tp-action-btn-${loc.id}`}>
-                      <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Aksi
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {filteredHistory.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8"><Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />{month === "all" ? "Belum ada buku kas yang diselesaikan." : "Tidak ada data pada bulan ini."}</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <Tabs defaultValue="waiting">
+        <TabsList className="bg-slate-100">
+          <TabsTrigger value="waiting" data-testid="tp-tab-waiting" className="gap-1.5">
+            <Hourglass className="h-3.5 w-3.5" /> Menunggu Pembayaran
+            <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">{waitingList.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="ready" data-testid="tp-tab-ready" className="gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Siap Dibayar
+            <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">{readyList.length}</span>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="waiting" data-testid="tp-panel-waiting">
+          {renderTable(waitingList, "Tidak ada proyek yang menunggu pembayaran.")}
+        </TabsContent>
+        <TabsContent value="ready" data-testid="tp-panel-ready">
+          {renderTable(readyList, "Belum ada proyek yang siap dibayar.")}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!actionLoc} onOpenChange={(v) => !v && setActionLoc(null)}>
         <DialogContent className="bg-white max-w-3xl">
@@ -205,4 +179,56 @@ export default function TeamPayments() {
       </Dialog>
     </div>
   );
+
+  function renderTable(list, emptyText) {
+    return (
+      <Card className="overflow-hidden bg-white border-slate-200">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-slate-50">
+              <TableHead>Lokasi</TableHead>
+              <TableHead>Proyek</TableHead>
+              <TableHead>Pekerjaan Selesai</TableHead>
+              <TableHead className="text-center">Anggota Tim</TableHead>
+              <TableHead className="text-center">Status Pembayaran</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.map(loc => {
+              const paid = paidCount(loc.id);
+              const total = (loc.team || []).length;
+              return (
+                <TableRow key={loc.id} data-testid={`tp-loc-row-${loc.id}`}>
+                  <TableCell className="font-semibold text-slate-900">
+                    <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-orange-500" /> {loc.name}</span>
+                  </TableCell>
+                  <TableCell className="text-slate-600">{projName(loc.project_id)}</TableCell>
+                  <TableCell>{formatDate(loc.closed_at)}</TableCell>
+                  <TableCell className="text-center">
+                    <span className="inline-flex items-center gap-1 text-sm text-slate-700"><Users className="h-3.5 w-3.5" /> {total}</span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {paid > 0 ? (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">SIAP DIBAYAR · {paid}/{total}</span>
+                    ) : (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">MENUNGGU</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" className="h-8 rounded-full bg-blue-700 hover:bg-blue-800" onClick={() => openAction(loc)} data-testid={`tp-action-btn-${loc.id}`}>
+                      <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Aksi
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {list.length === 0 && (
+              <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8"><Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />{month === "all" ? emptyText : "Tidak ada data pada bulan ini."}</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+    );
+  }
 }
