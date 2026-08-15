@@ -34,7 +34,6 @@ export default function TeamPayments() {
   };
   useEffect(() => { load(); }, []);
 
-  const projName = (id) => projects.find(p => p.id === id)?.name || "-";
   const paidCount = (locId) => payments.filter(p => p.location_id === locId && p.paid).length;
 
   const months = [...new Set(history.map(l => (l.closed_at || "").slice(0, 7)).filter(Boolean))].sort().reverse();
@@ -186,11 +185,10 @@ export default function TeamPayments() {
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">
-              <TableHead>Lokasi</TableHead>
               <TableHead>Proyek</TableHead>
+              <TableHead>Anggota Tim</TableHead>
               <TableHead>Pekerjaan Selesai</TableHead>
-              <TableHead className="text-center">Anggota Tim</TableHead>
-              <TableHead className="text-center">Status Pembayaran</TableHead>
+              <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
@@ -198,16 +196,21 @@ export default function TeamPayments() {
             {list.map(loc => {
               const paid = paidCount(loc.id);
               const total = (loc.team || []).length;
+              const proj = projects.find(p => p.id === loc.project_id);
+              const ket = proj?.maintenance_notes || proj?.keterangan || "";
               return (
                 <TableRow key={loc.id} data-testid={`tp-loc-row-${loc.id}`}>
-                  <TableCell className="font-semibold text-slate-900">
-                    <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-orange-500" /> {loc.name}</span>
+                  <TableCell>
+                    <div className="font-semibold text-slate-900 inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-orange-500" /> {proj?.name || loc.name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{proj?.work_type || "-"}{ket ? ` — ${ket}` : ""}</div>
                   </TableCell>
-                  <TableCell className="text-slate-600">{projName(loc.project_id)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-start gap-1.5 text-sm text-slate-700">
+                      <Users className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>{(loc.team || []).map(m => m.name).join(", ") || "-"}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>{formatDate(loc.closed_at)}</TableCell>
-                  <TableCell className="text-center">
-                    <span className="inline-flex items-center gap-1 text-sm text-slate-700"><Users className="h-3.5 w-3.5" /> {total}</span>
-                  </TableCell>
                   <TableCell className="text-center">
                     {paid > 0 ? (
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">SIAP DIBAYAR · {paid}/{total}</span>
@@ -224,7 +227,7 @@ export default function TeamPayments() {
               );
             })}
             {list.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8"><Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />{month === "all" ? emptyText : "Tidak ada data pada bulan ini."}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-8"><Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />{month === "all" ? emptyText : "Tidak ada data pada bulan ini."}</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

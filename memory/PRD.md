@@ -76,6 +76,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [x] Hapus menu Kasbon & Pembayaran (15 Feb 2026): item nav `/kasbon` dihapus dari sidebar semua role, route dihapus dari App.js, file `pages/Kasbon.jsx` dihapus. Backend endpoint `/api/kasbon` tetap ada (tidak diekspos di UI). Kasbon tetap dicatat via Buku Kas (kategori Kasbon) dan tampil di Pembayaran Tim/Pembayaran Saya.
 - [x] Hapus menu Anggota Tim pada admin (15 Feb 2026): item nav `/team` (roles owner) dihapus dari sidebar, route dan import dihapus dari App.js, file `pages/Team.jsx` dihapus. Penambahan anggota tim tetap tersedia via halaman Buku Kas (dialog "Tambah Anggota Tim (Peninjau)").
 - [x] Tab Pembayaran Tim (15 Feb 2026): halaman Pembayaran Tim kini 2 tab (Shadcn Tabs) — "Menunggu Pembayaran" (`tp-tab-waiting`, lokasi tanpa payment tersimpan / paidCount==0) dan "Siap Dibayar" (`tp-tab-ready`, paidCount>0). Setelah Bendahara simpan rincian via dialog Aksi, load() ulang → proyek otomatis pindah tab. Badge status: MENUNGGU (oranye) / SIAP DIBAYAR · n/total (hijau). Filter bulan tetap berlaku untuk kedua tab.
+- [x] Kolom tabel Pembayaran Tim (15 Feb 2026): kolom kedua tab diubah jadi — Proyek (nama proyek + jenis pekerjaan + keterangan bertumpuk), Anggota Tim (daftar nama anggota join koma), Pekerjaan Selesai (tanggal closed_at), Status, Aksi. Kolom Lokasi terpisah dihapus.
 - [x] Visual edit (8 Feb 2026): hapus info "Jumlah Pencatatan Buku Kas" dari dialog detail proyek.
 
 ## Backlog (P1)
