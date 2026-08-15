@@ -12,7 +12,6 @@ import Locations from "@/pages/Locations";
 import Activities from "@/pages/Activities";
 import Tagihan from "@/pages/Tagihan";
 import CashBook from "@/pages/CashBook";
-import Kasbon from "@/pages/Kasbon";
 import TeamPayments from "@/pages/TeamPayments";
 import History from "@/pages/History";
 import HistoryBukuKas from "@/pages/HistoryBukuKas";
@@ -44,7 +43,6 @@ export default function App() {
             <Route path="/activities" element={<ProtectedRoute roles={["owner"]}><Activities /></ProtectedRoute>} />
             <Route path="/tagihan" element={<ProtectedRoute roles={["owner", "penagihan", "bendahara"]}><Tagihan /></ProtectedRoute>} />
             <Route path="/cashbook" element={<ProtectedRoute roles={["owner", "bendahara", "tim"]}><CashBook /></ProtectedRoute>} />
-            <Route path="/kasbon" element={<Kasbon />} />
             <Route path="/team-payments" element={<ProtectedRoute roles={["owner", "bendahara"]}><TeamPayments /></ProtectedRoute>} />
             <Route path="/my-payments" element={<ProtectedRoute roles={["tim"]}><MyPayments /></ProtectedRoute>} />
             <Route path="/history" element={<History />} />
