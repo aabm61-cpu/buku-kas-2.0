@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays, Hourglass, Undo2 } from "lucide-react";
+import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays, Hourglass, Undo2, Lock } from "lucide-react";
 import { formatIDR, formatDate, monthLabel } from "@/lib/format";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -145,6 +145,12 @@ export default function TeamPayments() {
               return `${proj.name} - ${proj.work_type}${proj.maintenance_notes ? ` - ${proj.maintenance_notes}` : ""}`;
             })()}</span></DialogTitle>
           </DialogHeader>
+          {actionLoc?.payment_ready && (
+            <div className="flex items-center gap-2 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2" data-testid="tp-locked-note">
+              <Lock className="h-4 w-4 shrink-0" />
+              Data terkunci karena berstatus Siap Dibayar. Tekan tombol Kembali pada tabel untuk memindahkan proyek ke Menunggu Pembayaran sebelum mengedit.
+            </div>
+          )}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
@@ -166,7 +172,7 @@ export default function TeamPayments() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Input type="number" placeholder="0" value={r.amount} onChange={e => setRow(i, "amount", e.target.value)} className="h-9 font-mono tabular" data-testid={`tp-amount-${r.user_id}`} />
+                      <Input type="number" placeholder="0" value={r.amount} disabled={!!actionLoc?.payment_ready} onChange={e => setRow(i, "amount", e.target.value)} className="h-9 font-mono tabular" data-testid={`tp-amount-${r.user_id}`} />
                     </TableCell>
                     <TableCell className="text-right font-mono tabular text-orange-700" data-testid={`tp-kasbon-${r.user_id}`}>
                       {formatIDR(r.kasbon_total)}
@@ -181,8 +187,10 @@ export default function TeamPayments() {
             </Table>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActionLoc(null)}>Batal</Button>
-            <Button onClick={submit} disabled={saving} className="bg-blue-700 hover:bg-blue-800" data-testid="tp-save-btn">{saving ? "Menyimpan…" : "Simpan Pembayaran"}</Button>
+            <Button variant="outline" onClick={() => setActionLoc(null)}>{actionLoc?.payment_ready ? "Tutup" : "Batal"}</Button>
+            {!actionLoc?.payment_ready && (
+              <Button onClick={submit} disabled={saving} className="bg-blue-700 hover:bg-blue-800" data-testid="tp-save-btn">{saving ? "Menyimpan…" : "Simpan Pembayaran"}</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

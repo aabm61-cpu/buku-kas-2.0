@@ -922,8 +922,14 @@ class TeamPaymentBatch(BaseModel):
     location_id: str
     payments: List[TeamPaymentLine]
 
+async def ensure_payment_unlocked(location_id: str):
+    loc = await db.locations.find_one({"id": location_id})
+    if loc and loc.get("payment_ready"):
+        raise HTTPException(400, "Data terkunci (Siap Dibayar). Tekan tombol Kembali untuk memindahkan proyek ke Menunggu Pembayaran sebelum mengedit.")
+
 @api.post("/team-payments/batch")
 async def save_team_payments_batch(payload: TeamPaymentBatch, user=Depends(require_role("owner", "bendahara"))):
+    await ensure_payment_unlocked(payload.location_id)
     saved = 0
     for line in payload.payments:
         if line.amount <= 0:
@@ -991,6 +997,10 @@ async def create_team_payment(payload: TeamPaymentIn, user=Depends(require_role(
 
 @api.patch("/team-payments/{pid}")
 async def update_team_payment(pid: str, payload: TeamPaymentUpdate, user=Depends(require_role("owner", "bendahara"))):
+    p0 = await db.team_payments.find_one({"id": pid})
+    if not p0:
+        raise HTTPException(404, "Tidak ditemukan")
+    await ensure_payment_unlocked(p0.get("location_id"))
     upd = {"paid": payload.paid}
     if payload.paid:
         upd["paid_at"] = now_iso()
@@ -1001,6 +1011,10 @@ async def update_team_payment(pid: str, payload: TeamPaymentUpdate, user=Depends
 
 @api.delete("/team-payments/{pid}")
 async def delete_team_payment(pid: str, user=Depends(require_role("owner", "bendahara"))):
+    p0 = await db.team_payments.find_one({"id": pid})
+    if not p0:
+        raise HTTPException(404, "Tidak ditemukan")
+    await ensure_payment_unlocked(p0.get("location_id"))
     res = await db.team_payments.delete_one({"id": pid})
     if res.deleted_count == 0:
         raise HTTPException(404, "Tidak ditemukan")
