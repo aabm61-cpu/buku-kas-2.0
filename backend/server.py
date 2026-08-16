@@ -595,6 +595,17 @@ async def close_bukukas(lid: str, user=Depends(require_role("tim", "bendahara", 
     await log_activity(user, "close", "bukukas", lid, f"Selesaikan buku kas {loc['name']}")
     return {"ok": True}
 
+@api.post("/bukukas/{lid}/reopen")
+async def reopen_bukukas(lid: str, user=Depends(require_role("owner", "bendahara"))):
+    loc = await db.locations.find_one({"id": lid})
+    if not loc:
+        raise HTTPException(404, "Buku kas tidak ditemukan")
+    if not loc.get("is_closed"):
+        raise HTTPException(400, "Buku kas ini masih aktif")
+    await db.locations.update_one({"id": lid}, {"$set": {"is_closed": False, "payment_ready": False}, "$unset": {"closed_at": "", "closed_by": ""}})
+    await log_activity(user, "reopen", "bukukas", lid, f"Kembalikan buku kas {loc['name']} menjadi aktif")
+    return {"ok": True}
+
 @api.get("/bukukas/history")
 async def bukukas_history(user=Depends(get_current_user)):
     """List all CLOSED buku kas (locations)."""

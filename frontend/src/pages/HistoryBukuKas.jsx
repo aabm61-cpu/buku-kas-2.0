@@ -4,10 +4,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, TrendingUp, TrendingDown, Eye } from "lucide-react";
+import { BookOpen, TrendingUp, TrendingDown, Eye, Undo2 } from "lucide-react";
 import { formatIDR, formatDateTime } from "@/lib/format";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function HistoryBukuKas() {
+  const { user } = useAuth();
+  const canReopen = user.role === "owner" || user.role === "bendahara";
   const [items, setItems] = useState([]);
   const [projects, setProjects] = useState([]);
   const [detailLoc, setDetailLoc] = useState(null);
@@ -15,12 +19,24 @@ export default function HistoryBukuKas() {
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [preview, setPreview] = useState(null);
 
-  useEffect(() => {
+  useEffect(() => { load(); }, []);
+
+  const load = () => {
     Promise.all([
       api.get("/bukukas/history").catch(() => ({ data: [] })),
       api.get("/projects").catch(() => ({ data: [] })),
     ]).then(([h, p]) => { setItems(h.data); setProjects(p.data); });
-  }, []);
+  };
+
+  const reopen = async (loc) => {
+    try {
+      await api.post(`/bukukas/${loc.id}/reopen`);
+      toast.success("Buku kas dikembalikan menjadi aktif. Tim lapangan dapat mengedit kembali.");
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Gagal mengembalikan buku kas");
+    }
+  };
 
   const projName = (id) => projects.find(p => p.id === id)?.name || "-";
 
@@ -65,9 +81,16 @@ export default function HistoryBukuKas() {
                   <TableCell className="text-right font-mono tabular text-red-700"><TrendingDown className="h-3 w-3 inline mr-1" />{formatIDR(b.total_out)}</TableCell>
                   <TableCell className={`text-right font-mono tabular font-bold ${saldo >= 0 ? "text-slate-900" : "text-red-700"}`}>{formatIDR(saldo)}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" className="h-8 rounded-full" onClick={() => openDetail(b)} data-testid={`history-detail-btn-${b.id}`}>
-                      <Eye className="h-3.5 w-3.5 mr-1.5" /> Lihat Detail
-                    </Button>
+                    <div className="inline-flex items-center gap-2">
+                      <Button size="sm" variant="outline" className="h-8 rounded-full" onClick={() => openDetail(b)} data-testid={`history-detail-btn-${b.id}`}>
+                        <Eye className="h-3.5 w-3.5 mr-1.5" /> Lihat Detail
+                      </Button>
+                      {canReopen && (
+                        <Button size="sm" variant="outline" className="h-8 rounded-full border-orange-500 text-orange-600 hover:bg-orange-50" onClick={() => reopen(b)} data-testid={`history-reopen-btn-${b.id}`}>
+                          <Undo2 className="h-3.5 w-3.5 mr-1.5" /> Kembali
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
