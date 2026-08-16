@@ -17,7 +17,7 @@ import ReceiptUpload from "@/components/ReceiptUpload";
 
 const emptyEntry = () => ({ type: "pengeluaran", category: "", amount: "", description: "", receipt_base64: "", kasbon_user_id: "" });
 
-const PENGELUARAN_CATS = ["Konsumsi", "Material", "Kasbon"];
+const PENGELUARAN_CATS = ["Operasional", "Material", "Kasbon"];
 
 export default function CashBook() {
   const { user } = useAuth();
