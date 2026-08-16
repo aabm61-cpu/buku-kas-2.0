@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays, Hourglass } from "lucide-react";
+import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays, Hourglass, Undo2 } from "lucide-react";
 import { formatIDR, formatDate, monthLabel } from "@/lib/format";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -38,8 +38,18 @@ export default function TeamPayments() {
 
   const months = [...new Set(history.map(l => (l.closed_at || "").slice(0, 7)).filter(Boolean))].sort().reverse();
   const filteredHistory = month === "all" ? history : history.filter(l => (l.closed_at || "").slice(0, 7) === month);
-  const waitingList = filteredHistory.filter(l => paidCount(l.id) === 0);
-  const readyList = filteredHistory.filter(l => paidCount(l.id) > 0);
+  const waitingList = filteredHistory.filter(l => !l.payment_ready);
+  const readyList = filteredHistory.filter(l => l.payment_ready);
+
+  const setReady = async (loc, ready) => {
+    try {
+      await api.patch(`/team-payments/ready/${loc.id}`, { ready });
+      toast.success(ready ? "Proyek dipindah ke Siap Dibayar" : "Proyek dikembalikan ke Menunggu Pembayaran");
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Gagal mengubah status");
+    }
+  };
 
   const openAction = (loc) => {
     const existing = payments.filter(p => p.location_id === loc.id);
@@ -119,10 +129,10 @@ export default function TeamPayments() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="waiting" data-testid="tp-panel-waiting">
-          {renderTable(waitingList, "Tidak ada proyek yang menunggu pembayaran.")}
+          {renderTable(waitingList, "waiting", "Tidak ada proyek yang menunggu pembayaran.")}
         </TabsContent>
         <TabsContent value="ready" data-testid="tp-panel-ready">
-          {renderTable(readyList, "Belum ada proyek yang siap dibayar.")}
+          {renderTable(readyList, "ready", "Belum ada proyek yang siap dibayar.")}
         </TabsContent>
       </Tabs>
 
@@ -179,7 +189,7 @@ export default function TeamPayments() {
     </div>
   );
 
-  function renderTable(list, emptyText) {
+  function renderTable(list, tab, emptyText) {
     return (
       <Card className="overflow-hidden bg-white border-slate-200">
         <Table>
@@ -202,7 +212,8 @@ export default function TeamPayments() {
                 <TableRow key={loc.id} data-testid={`tp-loc-row-${loc.id}`}>
                   <TableCell>
                     <div className="font-semibold text-slate-900 inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-orange-500" /> {proj?.name || loc.name}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{proj?.work_type || "-"}{ket ? ` — ${ket}` : ""}</div>
+                    <div className="text-sm text-slate-600 mt-0.5">{proj?.work_type || "-"}</div>
+                    {ket && <div className="text-xs text-slate-500 mt-0.5">{ket}</div>}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-start gap-1.5 text-sm text-slate-700">
@@ -212,16 +223,33 @@ export default function TeamPayments() {
                   </TableCell>
                   <TableCell>{formatDate(loc.closed_at)}</TableCell>
                   <TableCell className="text-center">
-                    {paid > 0 ? (
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">SIAP DIBAYAR · {paid}/{total}</span>
+                    {tab === "ready" ? (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">SIAP DIBAYAR</span>
+                    ) : paid > 0 ? (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">TERISI {paid}/{total}</span>
                     ) : (
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">MENUNGGU</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" className="h-8 rounded-full bg-blue-700 hover:bg-blue-800" onClick={() => openAction(loc)} data-testid={`tp-action-btn-${loc.id}`}>
-                      <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Aksi
-                    </Button>
+                    <div className="inline-flex items-center gap-2">
+                      <Button size="sm" className="h-8 rounded-full bg-blue-700 hover:bg-blue-800" onClick={() => openAction(loc)} data-testid={`tp-action-btn-${loc.id}`}>
+                        <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Aksi
+                      </Button>
+                      {tab === "waiting" ? (
+                        <Button size="sm" variant="outline" disabled={total === 0 || paid < total}
+                          className="h-8 rounded-full border-green-600 text-green-700 hover:bg-green-50 disabled:border-slate-200 disabled:text-slate-400"
+                          onClick={() => setReady(loc, true)} data-testid={`tp-ready-btn-${loc.id}`}>
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Siap Dibayar
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline"
+                          className="h-8 rounded-full border-orange-500 text-orange-600 hover:bg-orange-50"
+                          onClick={() => setReady(loc, false)} data-testid={`tp-back-btn-${loc.id}`}>
+                          <Undo2 className="h-3.5 w-3.5 mr-1.5" /> Kembali
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );

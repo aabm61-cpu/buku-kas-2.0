@@ -937,6 +937,28 @@ async def save_team_payments_batch(payload: TeamPaymentBatch, user=Depends(requi
     await log_activity(user, "create", "team_payment", payload.location_id, f"Pembayaran tim {saved} anggota")
     return {"ok": True, "saved": saved}
 
+class PaymentReadyBody(BaseModel):
+    ready: bool
+
+@api.patch("/team-payments/ready/{location_id}")
+async def set_payment_ready(location_id: str, body: PaymentReadyBody, user=Depends(require_role("owner", "bendahara"))):
+    loc = await db.locations.find_one({"id": location_id})
+    if not loc:
+        raise HTTPException(404, "Lokasi tidak ditemukan")
+    if body.ready:
+        members = [a async for a in db.location_assignments.find({"location_id": location_id})]
+        if not members:
+            raise HTTPException(400, "Tidak ada anggota tim di buku kas ini")
+        for m in members:
+            p = await db.team_payments.find_one({"location_id": location_id, "user_id": m["user_id"], "paid": True})
+            if not p:
+                u = await db.users.find_one({"id": m["user_id"]})
+                nama = (u or {}).get("name") or (u or {}).get("username") or "anggota"
+                raise HTTPException(400, f"Pembayaran untuk {nama} belum diisi. Lengkapi semua anggota terlebih dahulu.")
+    await db.locations.update_one({"id": location_id}, {"$set": {"payment_ready": body.ready}})
+    await log_activity(user, "update", "team_payment", location_id, f"Status pembayaran: {'Siap Dibayar' if body.ready else 'Menunggu Pembayaran'}")
+    return {"ok": True, "payment_ready": body.ready}
+
 @api.post("/team-payments")
 async def create_team_payment(payload: TeamPaymentIn, user=Depends(require_role("owner", "bendahara"))):
     gross = payload.days_worked * payload.daily_rate + payload.bonus
