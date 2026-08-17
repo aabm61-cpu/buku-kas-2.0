@@ -979,25 +979,33 @@ async def set_payment_ready(location_id: str, body: PaymentReadyBody, user=Depen
     return {"ok": True, "payment_ready": body.ready}
 
 class PaymentEntryIn(BaseModel):
-    location_ids: List[str]
-    period: str
+    month: str  # format YYYY-MM
+    period: str  # "1-15" | "16-end"
 
 @api.post("/payment-entries")
 async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_role("owner", "bendahara"))):
-    if not payload.location_ids:
-        raise HTTPException(400, "Pilih minimal satu proyek")
-    if payload.period not in ("5-19", "20-4"):
-        raise HTTPException(400, "Kategori pembayaran tidak valid")
-    locs = [l async for l in db.locations.find({"id": {"$in": payload.location_ids}})]
-    if len(locs) != len(payload.location_ids):
-        raise HTTPException(404, "Ada proyek yang tidak ditemukan")
+    if payload.period not in ("1-15", "16-end"):
+        raise HTTPException(400, "Periode tidak valid")
+    if len(payload.month) != 7 or payload.month[4] != "-":
+        raise HTTPException(400, "Bulan tidak valid")
+
+    def in_range(closed_at: str) -> bool:
+        if not closed_at or closed_at[:7] != payload.month:
+            return False
+        day = int(closed_at[8:10])
+        return day <= 15 if payload.period == "1-15" else day >= 16
+
+    locs = [l async for l in db.locations.find({"is_closed": True, "payment_ready": True}) if in_range(l.get("closed_at", ""))]
+    if not locs:
+        raise HTTPException(400, "Tidak ada proyek Siap Dibayar pada periode ini")
+    loc_ids = [l["id"] for l in locs]
     proj_ids = [l.get("project_id") for l in locs if l.get("project_id")]
     proj_names = {p["id"]: p.get("name", "") async for p in db.projects.find({"id": {"$in": proj_ids}})}
     project_names = [proj_names.get(l.get("project_id")) or l.get("name", "") for l in locs]
 
     members = {}
     total_amount = total_kasbon = 0.0
-    async for p in db.team_payments.find({"location_id": {"$in": payload.location_ids}, "paid": True}):
+    async for p in db.team_payments.find({"location_id": {"$in": loc_ids}, "paid": True}):
         m = members.setdefault(p["user_id"], {"user_id": p["user_id"], "name": p.get("user_name", ""), "amount": 0.0, "kasbon": 0.0, "net": 0.0, "status": "dibayar"})
         m["amount"] += p.get("amount", 0)
         m["kasbon"] += p.get("kasbon_total", 0)
@@ -1005,13 +1013,14 @@ async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_rol
         total_amount += p.get("amount", 0)
         total_kasbon += p.get("kasbon_total", 0)
     if not members:
-        raise HTTPException(400, "Belum ada data pembayaran anggota untuk proyek yang dipilih")
+        raise HTTPException(400, "Belum ada data pembayaran anggota untuk periode ini")
 
     doc = {
         "id": new_id(),
-        "location_ids": payload.location_ids,
-        "project_names": project_names,
+        "month": payload.month,
         "period": payload.period,
+        "location_ids": loc_ids,
+        "project_names": project_names,
         "total_amount": total_amount,
         "total_kasbon": total_kasbon,
         "total_net": total_amount - total_kasbon,
@@ -1020,7 +1029,7 @@ async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_rol
         "created_by": user["id"],
     }
     await db.payment_entries.insert_one(doc)
-    await log_activity(user, "create", "payment_entry", doc["id"], f"Entri pembayaran {len(project_names)} proyek, periode {payload.period}")
+    await log_activity(user, "create", "payment_entry", doc["id"], f"Entri pembayaran periode {payload.month} {payload.period} ({len(project_names)} proyek)")
     return clean_doc(doc)
 
 @api.get("/payment-entries")
