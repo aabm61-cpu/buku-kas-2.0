@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays, Hourglass, Undo2, Lock } from "lucide-react";
+import { Wallet, MapPin, Users, ListChecks, Crown, CheckCircle2, CalendarDays, Hourglass, Undo2, Lock, Receipt } from "lucide-react";
 import { formatIDR, formatDate, monthLabel } from "@/lib/format";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -21,6 +22,7 @@ export default function TeamPayments() {
   const [rows, setRows] = useState([]);
   const [saving, setSaving] = useState(false);
   const [month, setMonth] = useState("all");
+  const [recapSel, setRecapSel] = useState({});
 
   const load = async () => {
     const [h, p, tp] = await Promise.all([
@@ -40,6 +42,20 @@ export default function TeamPayments() {
   const filteredHistory = month === "all" ? history : history.filter(l => (l.closed_at || "").slice(0, 7) === month);
   const waitingList = filteredHistory.filter(l => !l.payment_ready);
   const readyList = filteredHistory.filter(l => l.payment_ready);
+
+  const locTotals = (locId) => {
+    const rows = payments.filter(p => p.location_id === locId && p.paid);
+    return {
+      amount: rows.reduce((s, p) => s + (p.amount || 0), 0),
+      kasbon: rows.reduce((s, p) => s + (p.kasbon_total || 0), 0),
+      net: rows.reduce((s, p) => s + (p.net || 0), 0),
+    };
+  };
+  const selectedLocs = readyList.filter(l => recapSel[l.id]);
+  const grand = selectedLocs.reduce((acc, l) => {
+    const t = locTotals(l.id);
+    return { amount: acc.amount + t.amount, kasbon: acc.kasbon + t.kasbon, net: acc.net + t.net };
+  }, { amount: 0, kasbon: 0, net: 0 });
 
   const setReady = async (loc, ready) => {
     try {
@@ -127,12 +143,19 @@ export default function TeamPayments() {
             <CheckCircle2 className="h-3.5 w-3.5" /> Siap Dibayar
             <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">{readyList.length}</span>
           </TabsTrigger>
+          <TabsTrigger value="recap" data-testid="tp-tab-recap" className="gap-1.5">
+            <Receipt className="h-3.5 w-3.5" /> Rekap Invoice
+            {selectedLocs.length > 0 && <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">{selectedLocs.length}</span>}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="waiting" data-testid="tp-panel-waiting">
           {renderTable(waitingList, "waiting", "Tidak ada proyek yang menunggu pembayaran.")}
         </TabsContent>
         <TabsContent value="ready" data-testid="tp-panel-ready">
           {renderTable(readyList, "ready", "Belum ada proyek yang siap dibayar.")}
+        </TabsContent>
+        <TabsContent value="recap" data-testid="tp-panel-recap">
+          {renderRecap()}
         </TabsContent>
       </Tabs>
 
@@ -268,6 +291,92 @@ export default function TeamPayments() {
           </TableBody>
         </Table>
       </Card>
+    );
+  }
+
+  function renderRecap() {
+    return (
+      <div className="space-y-4">
+        <Card className="overflow-hidden bg-white border-slate-200">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="w-10"></TableHead>
+                <TableHead>Proyek</TableHead>
+                <TableHead>Anggota Tim</TableHead>
+                <TableHead className="text-right">Hasil</TableHead>
+                <TableHead className="text-right">Kasbon</TableHead>
+                <TableHead className="text-right">Diterima</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {readyList.map(loc => {
+                const proj = projects.find(p => p.id === loc.project_id);
+                const t = locTotals(loc.id);
+                return (
+                  <TableRow key={loc.id} data-testid={`recap-row-${loc.id}`} className={recapSel[loc.id] ? "bg-blue-50/50" : ""}>
+                    <TableCell>
+                      <Checkbox checked={!!recapSel[loc.id]} onCheckedChange={(v) => setRecapSel({ ...recapSel, [loc.id]: !!v })} data-testid={`recap-check-${loc.id}`} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-semibold text-slate-900">{proj?.name || loc.name}</div>
+                      <div className="text-xs text-slate-500">{proj?.work_type || "-"}</div>
+                    </TableCell>
+                    <TableCell className="text-sm text-slate-600">{(loc.team || []).map(m => m.name).join(", ") || "-"}</TableCell>
+                    <TableCell className="text-right font-mono tabular">{formatIDR(t.amount)}</TableCell>
+                    <TableCell className="text-right font-mono tabular text-orange-700">{t.kasbon > 0 ? `- ${formatIDR(t.kasbon)}` : "-"}</TableCell>
+                    <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(t.net)}</TableCell>
+                  </TableRow>
+                );
+              })}
+              {readyList.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8"><Receipt className="h-8 w-8 mx-auto mb-2 text-slate-300" />Belum ada proyek berstatus Siap Dibayar untuk direkap.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+
+        {selectedLocs.length > 0 && (
+          <Card className="bg-white border-blue-200 p-5" data-testid="recap-summary">
+            <div className="flex items-center gap-2 mb-4">
+              <Receipt className="h-4 w-4 text-blue-700" />
+              <span className="text-xs font-semibold tracking-widest text-slate-500">REKAP INVOICE GABUNGAN · {selectedLocs.length} PROYEK</span>
+            </div>
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Proyek</TableHead>
+                    <TableHead className="text-right">Hasil</TableHead>
+                    <TableHead className="text-right">Kasbon</TableHead>
+                    <TableHead className="text-right">Diterima</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedLocs.map(loc => {
+                    const proj = projects.find(p => p.id === loc.project_id);
+                    const t = locTotals(loc.id);
+                    return (
+                      <TableRow key={loc.id} data-testid={`recap-sum-row-${loc.id}`}>
+                        <TableCell className="font-medium text-slate-900">{proj?.name || loc.name}</TableCell>
+                        <TableCell className="text-right font-mono tabular">{formatIDR(t.amount)}</TableCell>
+                        <TableCell className="text-right font-mono tabular text-orange-700">{t.kasbon > 0 ? `- ${formatIDR(t.kasbon)}` : "-"}</TableCell>
+                        <TableCell className="text-right font-mono tabular">{formatIDR(t.net)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  <TableRow className="bg-blue-50 border-t-2 border-blue-200">
+                    <TableCell className="font-bold text-slate-900">TOTAL ({selectedLocs.length} proyek)</TableCell>
+                    <TableCell className="text-right font-mono tabular font-bold" data-testid="recap-total-amount">{formatIDR(grand.amount)}</TableCell>
+                    <TableCell className="text-right font-mono tabular font-bold text-orange-700" data-testid="recap-total-kasbon">{grand.kasbon > 0 ? `- ${formatIDR(grand.kasbon)}` : "-"}</TableCell>
+                    <TableCell className="text-right font-mono tabular font-bold text-green-700 text-base" data-testid="recap-total-net">{formatIDR(grand.net)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        )}
+      </div>
     );
   }
 }

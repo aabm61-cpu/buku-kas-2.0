@@ -967,10 +967,12 @@ async def set_payment_ready(location_id: str, body: PaymentReadyBody, user=Depen
         if not members:
             raise HTTPException(400, "Tidak ada anggota tim di buku kas ini")
         for m in members:
+            u = await db.users.find_one({"id": m["user_id"]})
+            if not u:
+                continue  # lewati assignment milik user yang sudah dihapus
             p = await db.team_payments.find_one({"location_id": location_id, "user_id": m["user_id"], "paid": True})
             if not p:
-                u = await db.users.find_one({"id": m["user_id"]})
-                nama = (u or {}).get("name") or (u or {}).get("username") or "anggota"
+                nama = u.get("name") or u.get("username") or "anggota"
                 raise HTTPException(400, f"Pembayaran untuk {nama} belum diisi. Lengkapi semua anggota terlebih dahulu.")
     await db.locations.update_one({"id": location_id}, {"$set": {"payment_ready": body.ready}})
     await log_activity(user, "update", "team_payment", location_id, f"Status pembayaran: {'Siap Dibayar' if body.ready else 'Menunggu Pembayaran'}")
