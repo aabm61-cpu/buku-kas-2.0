@@ -978,6 +978,63 @@ async def set_payment_ready(location_id: str, body: PaymentReadyBody, user=Depen
     await log_activity(user, "update", "team_payment", location_id, f"Status pembayaran: {'Siap Dibayar' if body.ready else 'Menunggu Pembayaran'}")
     return {"ok": True, "payment_ready": body.ready}
 
+class PaymentEntryIn(BaseModel):
+    location_ids: List[str]
+    period: str
+
+@api.post("/payment-entries")
+async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_role("owner", "bendahara"))):
+    if not payload.location_ids:
+        raise HTTPException(400, "Pilih minimal satu proyek")
+    if payload.period not in ("5-19", "20-4"):
+        raise HTTPException(400, "Kategori pembayaran tidak valid")
+    locs = [l async for l in db.locations.find({"id": {"$in": payload.location_ids}})]
+    if len(locs) != len(payload.location_ids):
+        raise HTTPException(404, "Ada proyek yang tidak ditemukan")
+    proj_ids = [l.get("project_id") for l in locs if l.get("project_id")]
+    proj_names = {p["id"]: p.get("name", "") async for p in db.projects.find({"id": {"$in": proj_ids}})}
+    project_names = [proj_names.get(l.get("project_id")) or l.get("name", "") for l in locs]
+
+    members = {}
+    total_amount = total_kasbon = 0.0
+    async for p in db.team_payments.find({"location_id": {"$in": payload.location_ids}, "paid": True}):
+        m = members.setdefault(p["user_id"], {"user_id": p["user_id"], "name": p.get("user_name", ""), "amount": 0.0, "kasbon": 0.0, "net": 0.0, "status": "dibayar"})
+        m["amount"] += p.get("amount", 0)
+        m["kasbon"] += p.get("kasbon_total", 0)
+        m["net"] += p.get("net", 0)
+        total_amount += p.get("amount", 0)
+        total_kasbon += p.get("kasbon_total", 0)
+    if not members:
+        raise HTTPException(400, "Belum ada data pembayaran anggota untuk proyek yang dipilih")
+
+    doc = {
+        "id": new_id(),
+        "location_ids": payload.location_ids,
+        "project_names": project_names,
+        "period": payload.period,
+        "total_amount": total_amount,
+        "total_kasbon": total_kasbon,
+        "total_net": total_amount - total_kasbon,
+        "members": list(members.values()),
+        "created_at": now_iso(),
+        "created_by": user["id"],
+    }
+    await db.payment_entries.insert_one(doc)
+    await log_activity(user, "create", "payment_entry", doc["id"], f"Entri pembayaran {len(project_names)} proyek, periode {payload.period}")
+    return clean_doc(doc)
+
+@api.get("/payment-entries")
+async def list_payment_entries(user=Depends(require_role("owner", "bendahara"))):
+    return [clean_doc(e) async for e in db.payment_entries.find({}).sort("created_at", -1)]
+
+@api.delete("/payment-entries/{eid}")
+async def delete_payment_entry(eid: str, user=Depends(require_role("owner", "bendahara"))):
+    res = await db.payment_entries.delete_one({"id": eid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Tidak ditemukan")
+    await log_activity(user, "delete", "payment_entry", eid)
+    return {"ok": True}
+
 @api.post("/team-payments")
 async def create_team_payment(payload: TeamPaymentIn, user=Depends(require_role("owner", "bendahara"))):
     gross = payload.days_worked * payload.daily_rate + payload.bonus
