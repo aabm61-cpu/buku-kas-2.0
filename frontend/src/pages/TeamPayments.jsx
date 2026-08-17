@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Receipt, Eye, Trash2, Wallet, FolderSearch, AlertTriangle } from "lucide-react";
+import { Plus, Receipt, Eye, Trash2, Wallet, FolderSearch, AlertTriangle, Download } from "lucide-react";
 import { formatIDR, formatDate, formatDateTime, monthLabel } from "@/lib/format";
 
 const PERIODS = [
@@ -69,6 +69,23 @@ export default function TeamPayments() {
     } finally { setSaving(false); }
   };
 
+  const downloadPdf = async (entry) => {
+    try {
+      const r = await api.get(`/payment-entries/${entry.id}/pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pembayaran-tim-${entry.month || ""}-${entry.period || ""}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("PDF berhasil diunduh");
+    } catch {
+      toast.error("Gagal mengunduh PDF");
+    }
+  };
+
   const remove = async (entry) => {
     try {
       await api.delete(`/payment-entries/${entry.id}`);
@@ -122,6 +139,9 @@ export default function TeamPayments() {
                   <div className="inline-flex items-center gap-2">
                     <Button size="sm" variant="outline" className="h-8 rounded-full" onClick={() => setDetail(en)} data-testid={`pe-detail-btn-${en.id}`}>
                       <Eye className="h-3.5 w-3.5 mr-1.5" /> Detail
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 rounded-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => downloadPdf(en)} data-testid={`pe-pdf-btn-${en.id}`}>
+                      <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
                     </Button>
                     <Button size="sm" variant="outline" className="h-8 rounded-full border-red-300 text-red-600 hover:bg-red-50" onClick={() => remove(en)} data-testid={`pe-delete-btn-${en.id}`}>
                       <Trash2 className="h-3.5 w-3.5" />
@@ -229,31 +249,35 @@ export default function TeamPayments() {
                   <TableHeader>
                     <TableRow className="bg-slate-50">
                       <TableHead>Nama Anggota</TableHead>
-                      <TableHead className="text-right">Nilai Proyek</TableHead>
+                      <TableHead>Lokasi Proyek</TableHead>
+                      <TableHead className="text-right">Nilai Pembayaran</TableHead>
                       <TableHead className="text-right">Kasbon</TableHead>
-                      <TableHead className="text-right">Net</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-right">Diterima</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(detail.members || []).map(m => (
-                      <TableRow key={m.user_id}>
-                        <TableCell className="font-medium text-slate-900">{m.name}</TableCell>
-                        <TableCell className="text-right font-mono tabular">{formatIDR(m.amount)}</TableCell>
-                        <TableCell className="text-right font-mono tabular text-orange-700">{m.kasbon > 0 ? `- ${formatIDR(m.kasbon)}` : "-"}</TableCell>
-                        <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(m.net)}</TableCell>
-                        <TableCell className="text-center"><span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">{(m.status || "dibayar").toUpperCase()}</span></TableCell>
+                    {(detail.details || []).map((r, i) => (
+                      <TableRow key={i} data-testid={`pe-detail-row-${i}`}>
+                        <TableCell className="font-medium text-slate-900">{r.user_name}</TableCell>
+                        <TableCell className="text-sm">{r.location_name}</TableCell>
+                        <TableCell className="text-right font-mono tabular">{formatIDR(r.amount)}</TableCell>
+                        <TableCell className="text-right font-mono tabular text-orange-700">{r.kasbon > 0 ? `- ${formatIDR(r.kasbon)}` : "-"}</TableCell>
+                        <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(r.net)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-blue-50 border-t-2 border-blue-200">
-                      <TableCell className="font-bold">TOTAL</TableCell>
+                      <TableCell className="font-bold" colSpan={2}>TOTAL</TableCell>
                       <TableCell className="text-right font-mono tabular font-bold">{formatIDR(detail.total_amount)}</TableCell>
                       <TableCell className="text-right font-mono tabular font-bold text-orange-700">{detail.total_kasbon > 0 ? `- ${formatIDR(detail.total_kasbon)}` : "-"}</TableCell>
                       <TableCell className="text-right font-mono tabular font-bold text-green-700">{formatIDR(detail.total_net)}</TableCell>
-                      <TableCell></TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" className="rounded-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => downloadPdf(detail)} data-testid="pe-detail-pdf-btn">
+                  <Download className="h-4 w-4 mr-1.5" /> Download PDF
+                </Button>
               </div>
             </div>
           )}

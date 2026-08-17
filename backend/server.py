@@ -982,6 +982,24 @@ class PaymentEntryIn(BaseModel):
     month: str  # format YYYY-MM
     period: str  # "1-15" | "16-end"
 
+async def compute_entry_details(location_ids: List[str]):
+    locs = {l["id"]: l async for l in db.locations.find({"id": {"$in": location_ids}})}
+    proj_ids = [l.get("project_id") for l in locs.values() if l.get("project_id")]
+    proj_names = {p["id"]: p.get("name", "") async for p in db.projects.find({"id": {"$in": proj_ids}})}
+    rows = []
+    async for p in db.team_payments.find({"location_id": {"$in": location_ids}, "paid": True}):
+        loc = locs.get(p.get("location_id")) or {}
+        loc_name = proj_names.get(loc.get("project_id")) or loc.get("name", "-")
+        rows.append({
+            "user_name": p.get("user_name", ""),
+            "location_name": loc_name,
+            "amount": p.get("amount", 0),
+            "kasbon": p.get("kasbon_total", 0),
+            "net": p.get("net", 0),
+        })
+    rows.sort(key=lambda r: (r["user_name"].lower(), r["location_name"].lower()))
+    return rows
+
 @api.post("/payment-entries")
 async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_role("owner", "bendahara"))):
     if payload.period not in ("1-15", "16-end"):
@@ -1028,6 +1046,7 @@ async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_rol
         "total_kasbon": total_kasbon,
         "total_net": total_amount - total_kasbon,
         "members": list(members.values()),
+        "details": await compute_entry_details(loc_ids),
         "created_at": now_iso(),
         "created_by": user["id"],
     }
@@ -1037,7 +1056,84 @@ async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_rol
 
 @api.get("/payment-entries")
 async def list_payment_entries(user=Depends(require_role("owner", "bendahara"))):
-    return [clean_doc(e) async for e in db.payment_entries.find({}).sort("created_at", -1)]
+    out = []
+    async for e in db.payment_entries.find({}).sort("created_at", -1):
+        e = clean_doc(e)
+        if not e.get("details"):
+            e["details"] = await compute_entry_details(e.get("location_ids", []))
+        out.append(e)
+    return out
+
+PERIOD_LABELS = {"1-15": "Tanggal 1 s/d 15", "16-end": "Tanggal 16 s/d Akhir Bulan"}
+MONTH_NAMES_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+
+def month_label_id(ym: str) -> str:
+    try:
+        y, m = ym.split("-")
+        return f"{MONTH_NAMES_ID[int(m) - 1]} {y}"
+    except Exception:
+        return ym or "-"
+
+def idr(n) -> str:
+    return f"Rp {n:,.0f}".replace(",", ".")
+
+@api.get("/payment-entries/{eid}/pdf")
+async def payment_entry_pdf(eid: str, user=Depends(require_role("owner", "bendahara"))):
+    entry = await db.payment_entries.find_one({"id": eid})
+    if not entry:
+        raise HTTPException(404, "Tidak ditemukan")
+    details = entry.get("details") or await compute_entry_details(entry.get("location_ids", []))
+
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table as RLTable, TableStyle
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("t", parent=styles["Title"], fontSize=16, spaceAfter=2)
+    sub_style = ParagraphStyle("s", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#475569"))
+
+    period_txt = f"{month_label_id(entry.get('month', ''))} - {PERIOD_LABELS.get(entry.get('period', ''), entry.get('period', ''))}"
+    created = (entry.get("created_at") or "")[:10]
+    elems = [
+        Paragraph("Rincian Pembayaran Tim", title_style),
+        Paragraph(f"Periode: {period_txt}", sub_style),
+        Paragraph(f"Tanggal dibuat: {created}", sub_style),
+        Paragraph(f"Proyek: {', '.join(entry.get('project_names', []))}", sub_style),
+        Spacer(1, 8),
+    ]
+
+    data = [["Nama Anggota", "Lokasi Proyek", "Nilai Pembayaran", "Kasbon", "Diterima"]]
+    for r in details:
+        data.append([r["user_name"], r["location_name"], idr(r["amount"]), f"- {idr(r['kasbon'])}" if r["kasbon"] > 0 else "-", idr(r["net"])])
+    data.append(["TOTAL", "", idr(entry.get("total_amount", 0)),
+                 f"- {idr(entry.get('total_kasbon', 0))}" if entry.get("total_kasbon", 0) > 0 else "-",
+                 idr(entry.get("total_net", 0))])
+
+    tbl = RLTable(data, colWidths=[38 * mm, 45 * mm, 32 * mm, 28 * mm, 32 * mm], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1d4ed8")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f8fafc")]),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#dbeafe")),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    elems.append(tbl)
+    doc.build(elems)
+
+    fname = f"pembayaran-tim-{entry.get('month', '')}-{entry.get('period', '')}.pdf"
+    return Response(content=buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 @api.delete("/payment-entries/{eid}")
 async def delete_payment_entry(eid: str, user=Depends(require_role("owner", "bendahara"))):
