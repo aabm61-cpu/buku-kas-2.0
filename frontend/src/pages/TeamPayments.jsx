@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Receipt, Eye, Trash2, Wallet, FolderSearch } from "lucide-react";
+import { Plus, Receipt, Eye, Trash2, Wallet, FolderSearch, AlertTriangle } from "lucide-react";
 import { formatIDR, formatDate, formatDateTime, monthLabel } from "@/lib/format";
 
 const PERIODS = [
@@ -49,27 +49,14 @@ export default function TeamPayments() {
     return period === "1-15" ? day <= 15 : day >= 16;
   };
   const matched = readyList.filter(inRange);
-  const matchedIds = matched.map(l => l.id);
-
-  // Rekapitulasi per anggota: Total Nilai Proyek - Total Kasbon = Net
-  const memberMap = {};
-  let totalAmount = 0, totalKasbon = 0;
-  payments.filter(p => matchedIds.includes(p.location_id) && p.paid).forEach(p => {
-    const m = memberMap[p.user_id] || { user_id: p.user_id, name: p.user_name, amount: 0, kasbon: 0, net: 0 };
-    m.amount += p.amount || 0;
-    m.kasbon += p.kasbon_total || 0;
-    m.net += p.net || 0;
-    memberMap[p.user_id] = m;
-    totalAmount += p.amount || 0;
-    totalKasbon += p.kasbon_total || 0;
-  });
-  const members = Object.values(memberMap);
+  const isDuplicate = !!(month && period && entries.some(en => en.month === month && en.period === period));
 
   const openForm = () => { setMonth(""); setPeriod(""); setOpen(true); };
 
   const submit = async () => {
     if (!month) { toast.error("Pilih bulan terlebih dahulu"); return; }
     if (!period) { toast.error("Pilih periode terlebih dahulu"); return; }
+    if (isDuplicate) { toast.error("Pembayaran untuk periode ini sudah pernah dibuat"); return; }
     if (matched.length === 0) { toast.error("Tidak ada proyek Siap Dibayar pada periode ini"); return; }
     setSaving(true);
     try {
@@ -177,79 +164,50 @@ export default function TeamPayments() {
               </div>
             </div>
 
-            {month && period && (
-              <>
-                <div>
-                  <div className="text-xs font-semibold tracking-widest text-slate-500 mb-2">PROYEK DITEMUKAN · {matched.length}</div>
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-slate-50">
-                          <TableHead>Nama Proyek</TableHead>
-                          <TableHead>Jenis Pekerjaan</TableHead>
-                          <TableHead>Keterangan</TableHead>
-                          <TableHead>Tanggal Selesai</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {matched.map(loc => {
-                          const proj = projects.find(p => p.id === loc.project_id);
-                          return (
-                            <TableRow key={loc.id} data-testid={`pe-proj-row-${loc.id}`}>
-                              <TableCell className="font-semibold text-slate-900">{proj?.name || loc.name}</TableCell>
-                              <TableCell className="text-sm">{proj?.work_type || "-"}</TableCell>
-                              <TableCell className="text-sm text-slate-600 max-w-[180px]">{proj?.maintenance_notes || proj?.keterangan || "-"}</TableCell>
-                              <TableCell className="text-sm">{formatDate(loc.closed_at)}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                        {matched.length === 0 && (
-                          <TableRow><TableCell colSpan={4} className="text-center text-slate-500 py-6"><FolderSearch className="h-6 w-6 mx-auto mb-1 text-slate-300" />Tidak ada proyek Siap Dibayar pada periode ini.</TableCell></TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
+            {month && period && isDuplicate && (
+              <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2" data-testid="pe-duplicate-warning">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Pembayaran untuk {monthLabel(month)} · {periodLabel(period)} sudah pernah dibuat. Hapus entri lama di riwayat jika ingin membuat ulang.
+              </div>
+            )}
 
-                {matched.length > 0 && (
-                  <div>
-                    <div className="text-xs font-semibold tracking-widest text-slate-500 mb-2">REKAPITULASI PEMBAYARAN ANGGOTA</div>
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-slate-50">
-                            <TableHead>Nama Anggota</TableHead>
-                            <TableHead className="text-right">Total Nilai Proyek</TableHead>
-                            <TableHead className="text-right">Total Kasbon</TableHead>
-                            <TableHead className="text-right">Net Pembayaran</TableHead>
+            {month && period && (
+              <div>
+                <div className="text-xs font-semibold tracking-widest text-slate-500 mb-2">PROYEK DITEMUKAN · {matched.length}</div>
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50">
+                        <TableHead>Nama Proyek</TableHead>
+                        <TableHead>Jenis Pekerjaan</TableHead>
+                        <TableHead>Keterangan</TableHead>
+                        <TableHead>Tanggal Selesai</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {matched.map(loc => {
+                        const proj = projects.find(p => p.id === loc.project_id);
+                        return (
+                          <TableRow key={loc.id} data-testid={`pe-proj-row-${loc.id}`}>
+                            <TableCell className="font-semibold text-slate-900">{proj?.name || loc.name}</TableCell>
+                            <TableCell className="text-sm">{proj?.work_type || "-"}</TableCell>
+                            <TableCell className="text-sm text-slate-600 max-w-[180px]">{proj?.maintenance_notes || proj?.keterangan || "-"}</TableCell>
+                            <TableCell className="text-sm">{formatDate(loc.closed_at)}</TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {members.map(m => (
-                            <TableRow key={m.user_id} data-testid={`pe-member-row-${m.user_id}`}>
-                              <TableCell className="font-medium text-slate-900">{m.name}</TableCell>
-                              <TableCell className="text-right font-mono tabular">{formatIDR(m.amount)}</TableCell>
-                              <TableCell className="text-right font-mono tabular text-orange-700">{m.kasbon > 0 ? `- ${formatIDR(m.kasbon)}` : "-"}</TableCell>
-                              <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(m.net)}</TableCell>
-                            </TableRow>
-                          ))}
-                          <TableRow className="bg-blue-50 border-t-2 border-blue-200">
-                            <TableCell className="font-bold text-slate-900">TOTAL</TableCell>
-                            <TableCell className="text-right font-mono tabular font-bold" data-testid="pe-total-amount">{formatIDR(totalAmount)}</TableCell>
-                            <TableCell className="text-right font-mono tabular font-bold text-orange-700" data-testid="pe-total-kasbon">{totalKasbon > 0 ? `- ${formatIDR(totalKasbon)}` : "-"}</TableCell>
-                            <TableCell className="text-right font-mono tabular font-bold text-green-700" data-testid="pe-total-net">{formatIDR(totalAmount - totalKasbon)}</TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
-              </>
+                        );
+                      })}
+                      {matched.length === 0 && (
+                        <TableRow><TableCell colSpan={4} className="text-center text-slate-500 py-6"><FolderSearch className="h-6 w-6 mx-auto mb-1 text-slate-300" />Tidak ada proyek Siap Dibayar pada periode ini.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={submit} disabled={saving || matched.length === 0} className="bg-blue-700 hover:bg-blue-800" data-testid="pe-save-btn">{saving ? "Menyimpan…" : "Simpan"}</Button>
+            <Button onClick={submit} disabled={saving || matched.length === 0 || isDuplicate} className="bg-blue-700 hover:bg-blue-800" data-testid="pe-save-btn">{saving ? "Menyimpan…" : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -988,6 +988,9 @@ async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_rol
         raise HTTPException(400, "Periode tidak valid")
     if len(payload.month) != 7 or payload.month[4] != "-":
         raise HTTPException(400, "Bulan tidak valid")
+    existing = await db.payment_entries.find_one({"month": payload.month, "period": payload.period})
+    if existing:
+        raise HTTPException(400, "Pembayaran untuk periode ini sudah pernah dibuat. Hapus entri lama jika ingin membuat ulang.")
 
     def in_range(closed_at: str) -> bool:
         if not closed_at or closed_at[:7] != payload.month:
