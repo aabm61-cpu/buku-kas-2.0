@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, FolderKanban, MapPin, Activity as ActivityIcon,
-  FileText, BookOpen, Wallet, History as HistoryIcon,
+  FileText, BookOpen, Wallet, History as HistoryIcon, ListChecks,
   HardHat, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, KeyRound, Building2,
 } from "lucide-react";
 import { roleLabel } from "@/lib/format";
@@ -19,6 +19,7 @@ const NAV = [
   { to: "/tagihan", label: "Tagihan", icon: FileText, roles: ["owner", "penagihan", "bendahara"] },
   { to: "/cashbook", label: "Buku Kas", icon: BookOpen, roles: ["owner", "bendahara", "tim"] },
   { to: "/team-payments", label: "Pembayaran Tim", icon: Wallet, roles: ["owner", "bendahara"] },
+  { to: "/rekap-pembayaran", label: "Rekap Pembayaran", icon: ListChecks, roles: ["owner", "bendahara"] },
   { to: "/my-payments", label: "Pembayaran Saya", icon: Wallet, roles: ["tim"] },
   { to: "/history-bukukas", label: "Riwayat Buku Kas", icon: HistoryIcon, roles: ["owner", "bendahara", "tim"] },
   { to: "/history", label: "History Lokasi", icon: HistoryIcon, roles: ["tim", "owner", "bendahara"] },
