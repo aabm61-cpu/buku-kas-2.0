@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, TrendingUp, TrendingDown, Eye, Undo2 } from "lucide-react";
+import { BookOpen, TrendingUp, TrendingDown, Eye, Undo2, Download } from "lucide-react";
 import { formatIDR, formatDateTime } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -40,6 +40,23 @@ export default function HistoryBukuKas() {
 
   const projName = (id) => projects.find(p => p.id === id)?.name || "-";
 
+  const downloadPdf = async (loc) => {
+    try {
+      const r = await api.get(`/bukukas/${loc.id}/pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bukukas-${projName(loc.project_id)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("PDF buku kas berhasil diunduh");
+    } catch {
+      toast.error("Gagal mengunduh PDF");
+    }
+  };
+
   const openDetail = async (loc) => {
     setDetailLoc(loc);
     setLoadingEntries(true);
@@ -73,9 +90,15 @@ export default function HistoryBukuKas() {
           <TableBody>
             {items.map(b => {
               const saldo = (b.total_in || 0) - (b.total_out || 0);
+              const proj = projects.find(p => p.id === b.project_id);
+              const ket = proj?.maintenance_notes || proj?.keterangan || "";
               return (
                 <TableRow key={b.id} data-testid={`history-row-${b.id}`}>
-                  <TableCell className="font-semibold text-slate-900">{projName(b.project_id)}</TableCell>
+                  <TableCell>
+                    <div className="font-semibold text-slate-900">{proj?.name || "-"}</div>
+                    <div className="text-sm text-slate-600 mt-0.5">{proj?.work_type || "-"}</div>
+                    {ket && <div className="text-xs text-slate-500 mt-0.5">{ket}</div>}
+                  </TableCell>
                   <TableCell className="text-slate-600 text-sm">{formatDateTime(b.closed_at)}</TableCell>
                   <TableCell className="text-right font-mono tabular text-green-700"><TrendingUp className="h-3 w-3 inline mr-1" />{formatIDR(b.total_in)}</TableCell>
                   <TableCell className="text-right font-mono tabular text-red-700"><TrendingDown className="h-3 w-3 inline mr-1" />{formatIDR(b.total_out)}</TableCell>
@@ -84,6 +107,9 @@ export default function HistoryBukuKas() {
                     <div className="inline-flex items-center gap-2">
                       <Button size="sm" variant="outline" className="h-8 rounded-full" onClick={() => openDetail(b)} data-testid={`history-detail-btn-${b.id}`}>
                         <Eye className="h-3.5 w-3.5 mr-1.5" /> Lihat Detail
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 rounded-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => downloadPdf(b)} data-testid={`history-pdf-btn-${b.id}`}>
+                        <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
                       </Button>
                       {canReopen && (
                         <Button size="sm" variant="outline" disabled={!!b.payment_ready}

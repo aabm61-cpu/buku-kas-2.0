@@ -649,6 +649,91 @@ async def bukukas_history(user=Depends(get_current_user)):
         result.append(entry)
     return result
 
+@api.get("/bukukas/{lid}/pdf")
+async def bukukas_pdf(lid: str, user=Depends(get_current_user)):
+    loc = await db.locations.find_one({"id": lid})
+    if not loc:
+        raise HTTPException(404, "Buku kas tidak ditemukan")
+    if user["role"] == "tim":
+        allowed = await user_location_ids(user) or []
+        if lid not in allowed:
+            raise HTTPException(403, "Akses ditolak")
+    proj = await db.projects.find_one({"id": loc.get("project_id")}) or {}
+    entries = [e async for e in db.cashbook.find({"location_id": lid}).sort("date", 1)]
+
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table as RLTable, TableStyle
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm, topMargin=15 * mm, bottomMargin=15 * mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("t", parent=styles["Title"], fontSize=16, spaceAfter=2)
+    sub_style = ParagraphStyle("s", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#475569"))
+    cell_style = ParagraphStyle("c", parent=styles["Normal"], fontSize=8, leading=10)
+
+    proj_name = proj.get("name") or loc.get("name", "-")
+    ket = proj.get("maintenance_notes") or proj.get("keterangan") or ""
+    elems = [
+        Paragraph(f"Buku Kas — {proj_name}", title_style),
+        Paragraph(f"Jenis Pekerjaan: {proj.get('work_type') or '-'}", sub_style),
+    ]
+    if ket:
+        elems.append(Paragraph(f"Keterangan: {ket}", sub_style))
+    if loc.get("closed_at"):
+        elems.append(Paragraph(f"Ditutup: {(loc.get('closed_at') or '')[:10]}", sub_style))
+    elems.append(Spacer(1, 8))
+
+    data = [["Tanggal", "Keterangan", "Pemasukan", "Operasional", "Material", "Kasbon"]]
+    t_in = t_ops = t_mat = t_kas = 0.0
+    for e in entries:
+        desc = e.get("description") or ""
+        if e.get("kasbon_user_name"):
+            desc = e["kasbon_user_name"] + (f" — {desc}" if desc else "")
+        amt = float(e.get("amount") or 0)
+        cols = ["-", "-", "-", "-"]
+        if e.get("type") == "pemasukan":
+            cols[0] = idr(amt); t_in += amt
+        else:
+            cat = e.get("category") or ""
+            if cat == "Material":
+                cols[2] = idr(amt); t_mat += amt
+            elif cat == "Kasbon":
+                cols[3] = idr(amt); t_kas += amt
+            else:
+                cols[1] = idr(amt); t_ops += amt
+        data.append([(e.get("date") or "")[:10], Paragraph(desc or "-", cell_style), cols[0], cols[1], cols[2], cols[3]])
+    data.append(["TOTAL", "", idr(t_in), idr(t_ops), idr(t_mat), idr(t_kas)])
+
+    tbl = RLTable(data, colWidths=[20 * mm, 56 * mm, 26 * mm, 26 * mm, 26 * mm, 26 * mm], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1d4ed8")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f8fafc")]),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#dbeafe")),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elems.append(tbl)
+    saldo = t_in - (t_ops + t_mat + t_kas)
+    elems.append(Spacer(1, 8))
+    elems.append(Paragraph(f"Total Pengeluaran: {idr(t_ops + t_mat + t_kas)} &nbsp;&nbsp;|&nbsp;&nbsp; Saldo Akhir: {idr(saldo)}",
+                           ParagraphStyle("sa", parent=styles["Normal"], fontSize=10, fontName="Helvetica-Bold")))
+    doc.build(elems)
+
+    fname = f"bukukas-{proj_name.replace(' ', '-')}.pdf"
+    return Response(content=buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
 @api.post("/bukukas/{lid}/transfer-pic")
 async def transfer_pic(lid: str, payload: TransferPIC, user=Depends(require_role("tim", "owner"))):
     loc = await db.locations.find_one({"id": lid})
@@ -987,20 +1072,26 @@ class PaymentEntryIn(BaseModel):
 async def compute_entry_details(location_ids: List[str]):
     locs = {l["id"]: l async for l in db.locations.find({"id": {"$in": location_ids}})}
     proj_ids = [l.get("project_id") for l in locs.values() if l.get("project_id")]
-    proj_names = {p["id"]: p.get("name", "") async for p in db.projects.find({"id": {"$in": proj_ids}})}
+    projs = {p["id"]: p async for p in db.projects.find({"id": {"$in": proj_ids}})}
     rows = []
     async for p in db.team_payments.find({"location_id": {"$in": location_ids}, "paid": True}):
         loc = locs.get(p.get("location_id")) or {}
-        loc_name = proj_names.get(loc.get("project_id")) or loc.get("name", "-")
+        proj = projs.get(loc.get("project_id")) or {}
+        loc_name = proj.get("name") or loc.get("name", "-")
         rows.append({
             "user_name": p.get("user_name", ""),
             "location_name": loc_name,
+            "work_type": proj.get("work_type", ""),
+            "keterangan": proj.get("maintenance_notes") or proj.get("keterangan") or "",
             "amount": p.get("amount", 0),
             "kasbon": p.get("kasbon_total", 0),
             "net": p.get("net", 0),
         })
     rows.sort(key=lambda r: (r["user_name"].lower(), r["location_name"].lower()))
     return rows
+
+def details_stale(details) -> bool:
+    return not details or "work_type" not in details[0]
 
 @api.post("/payment-entries")
 async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_role("owner", "bendahara"))):
@@ -1065,7 +1156,7 @@ async def list_payment_entries(user=Depends(require_role("owner", "bendahara")))
     out = []
     async for e in db.payment_entries.find({}).sort("created_at", -1):
         e = clean_doc(e)
-        if not e.get("details"):
+        if details_stale(e.get("details")):
             e["details"] = await compute_entry_details(e.get("location_ids", []))
         out.append(e)
     return out
@@ -1164,7 +1255,7 @@ async def confirm_payment_received(eid: str, body: ConfirmBody, user=Depends(req
     await db.payment_entries.update_one({"id": eid}, {"$set": {"members": members}})
     await log_activity(user, "update", "payment_entry", eid, f"Konfirmasi diterima: {target.get('name')} = {body.received}")
     entry = clean_doc(await db.payment_entries.find_one({"id": eid}))
-    if not entry.get("details"):
+    if details_stale(entry.get("details")):
         entry["details"] = await compute_entry_details(entry.get("location_ids", []))
     return entry
 
@@ -1175,7 +1266,9 @@ async def my_payment_entries(user=Depends(require_role("tim"))):
         member = next((m for m in e.get("members", []) if m.get("user_id") == user["id"]), None)
         if not member:
             continue
-        details = e.get("details") or await compute_entry_details(e.get("location_ids", []))
+        details = e.get("details")
+        if details_stale(details):
+            details = await compute_entry_details(e.get("location_ids", []))
         locs = [r for r in details if r.get("user_name") == member.get("name")]
         out.append({
             "id": e["id"],

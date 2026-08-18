@@ -481,7 +481,11 @@ export default function TeamPayments() {
                   <TableBody>
                     {memberLocations(memberDetail.entry, memberDetail.member).map((r, i) => (
                       <TableRow key={i} data-testid={`pe-member-loc-row-${i}`}>
-                        <TableCell className="font-medium text-slate-900">{r.location_name}</TableCell>
+                        <TableCell>
+                          <div className="font-medium text-slate-900">{r.location_name}</div>
+                          {r.work_type && <div className="text-xs text-slate-600 mt-0.5">{r.work_type}</div>}
+                          {r.keterangan && <div className="text-[11px] text-slate-500 mt-0.5">{r.keterangan}</div>}
+                        </TableCell>
                         <TableCell className="text-right font-mono tabular">{formatIDR(r.amount)}</TableCell>
                         <TableCell className="text-right font-mono tabular text-orange-700">{r.kasbon > 0 ? `- ${formatIDR(r.kasbon)}` : "-"}</TableCell>
                         <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(r.net)}</TableCell>
