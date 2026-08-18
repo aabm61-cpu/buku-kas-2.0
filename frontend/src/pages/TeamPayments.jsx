@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Receipt, Eye, Trash2, Wallet, FolderSearch, AlertTriangle, Download, CheckCircle2 } from "lucide-react";
+import { Plus, Eye, Trash2, Wallet, FolderSearch, AlertTriangle, Download, CheckCircle2, MapPin } from "lucide-react";
 import { formatIDR, formatDate, formatDateTime, monthLabel } from "@/lib/format";
 
 const PERIODS = [
@@ -19,22 +19,20 @@ const periodLabel = (v) => PERIODS.find(p => p.value === v)?.label || v;
 export default function TeamPayments() {
   const [history, setHistory] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [entries, setEntries] = useState([]);
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState("");
   const [period, setPeriod] = useState("");
   const [saving, setSaving] = useState(false);
-  const [detail, setDetail] = useState(null);
+  const [memberDetail, setMemberDetail] = useState(null); // { entry, member }
 
   const load = async () => {
-    const [h, p, tp, en] = await Promise.all([
+    const [h, p, en] = await Promise.all([
       api.get("/bukukas/history"),
       api.get("/projects"),
-      api.get("/team-payments"),
       api.get("/payment-entries"),
     ]);
-    setHistory(h.data); setProjects(p.data); setPayments(tp.data); setEntries(en.data);
+    setHistory(h.data); setProjects(p.data); setEntries(en.data);
   };
   useEffect(() => { load(); }, []);
 
@@ -86,10 +84,9 @@ export default function TeamPayments() {
     }
   };
 
-  const confirmReceived = async (member) => {
+  const confirmReceived = async (entry, member) => {
     try {
-      const r = await api.patch(`/payment-entries/${detail.id}/confirm`, { user_id: member.user_id, received: true });
-      setDetail(r.data);
+      const r = await api.patch(`/payment-entries/${entry.id}/confirm`, { user_id: member.user_id, received: true });
       setEntries(entries.map(en => (en.id === r.data.id ? r.data : en)));
       toast.success(`Pembayaran ${member.name} dikonfirmasi diterima`);
     } catch (e) {
@@ -107,6 +104,9 @@ export default function TeamPayments() {
     }
   };
 
+  const memberLocations = (entry, member) =>
+    (entry.details || []).filter(d => d.user_name === member.name);
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-4">
@@ -120,53 +120,81 @@ export default function TeamPayments() {
         </Button>
       </div>
 
-      <Card className="overflow-hidden bg-white border-slate-200">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50">
-              <TableHead>Tanggal Dibuat</TableHead>
-              <TableHead>Periode</TableHead>
-              <TableHead>Proyek</TableHead>
-              <TableHead className="text-right">Hasil</TableHead>
-              <TableHead className="text-right">Kasbon</TableHead>
-              <TableHead className="text-right">Diterima</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {entries.map(en => (
-              <TableRow key={en.id} data-testid={`pe-row-${en.id}`}>
-                <TableCell className="text-sm text-slate-600">{formatDateTime(en.created_at)}</TableCell>
-                <TableCell>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                    {en.month ? `${monthLabel(en.month)} · ${periodLabel(en.period)}` : periodLabel(en.period)}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm font-medium text-slate-900 max-w-[220px]">{(en.project_names || []).join(", ")}</TableCell>
-                <TableCell className="text-right font-mono tabular">{formatIDR(en.total_amount)}</TableCell>
-                <TableCell className="text-right font-mono tabular text-orange-700">{en.total_kasbon > 0 ? `- ${formatIDR(en.total_kasbon)}` : "-"}</TableCell>
-                <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(en.total_net)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="inline-flex items-center gap-2">
-                    <Button size="sm" variant="outline" className="h-8 rounded-full" onClick={() => setDetail(en)} data-testid={`pe-detail-btn-${en.id}`}>
-                      <Eye className="h-3.5 w-3.5 mr-1.5" /> Detail
-                    </Button>
-                    <Button size="sm" variant="outline" className="h-8 rounded-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => downloadPdf(en)} data-testid={`pe-pdf-btn-${en.id}`}>
-                      <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
-                    </Button>
-                    <Button size="sm" variant="outline" className="h-8 rounded-full border-red-300 text-red-600 hover:bg-red-50" onClick={() => remove(en)} data-testid={`pe-delete-btn-${en.id}`}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {entries.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-10"><Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />Belum ada entri pembayaran. Klik <b>Buat Pembayaran</b> untuk membuat.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      {/* Riwayat: grup per periode */}
+      <div className="space-y-5">
+        {entries.map(en => (
+          <Card key={en.id} className="overflow-hidden bg-white border-slate-200" data-testid={`pe-group-${en.id}`}>
+            <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 bg-blue-50 border-b border-blue-100">
+              <div>
+                <div className="font-bold text-slate-900" data-testid={`pe-group-title-${en.id}`}>
+                  Pembayaran ({en.month ? `${monthLabel(en.month)} · ${periodLabel(en.period)}` : periodLabel(en.period)})
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">Dibuat {formatDateTime(en.created_at)}</div>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <Button size="sm" variant="outline" className="h-8 rounded-full border-blue-300 text-blue-700 hover:bg-blue-100 bg-white" onClick={() => downloadPdf(en)} data-testid={`pe-pdf-btn-${en.id}`}>
+                  <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 rounded-full border-red-300 text-red-600 hover:bg-red-50 bg-white" onClick={() => remove(en)} data-testid={`pe-delete-btn-${en.id}`}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead>Nama</TableHead>
+                  <TableHead className="text-right">Hasil</TableHead>
+                  <TableHead className="text-right">Kasbon</TableHead>
+                  <TableHead className="text-right">Diterima</TableHead>
+                  <TableHead className="text-center">Detail</TableHead>
+                  <TableHead className="text-center">Konfirmasi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(en.members || []).map(m => (
+                  <TableRow key={m.user_id} data-testid={`pe-member-row-${en.id}-${m.user_id}`}>
+                    <TableCell className="font-semibold text-slate-900">{m.name}</TableCell>
+                    <TableCell className="text-right font-mono tabular">{formatIDR(m.amount)}</TableCell>
+                    <TableCell className="text-right font-mono tabular text-orange-700">{m.kasbon > 0 ? `- ${formatIDR(m.kasbon)}` : "-"}</TableCell>
+                    <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(m.net)}</TableCell>
+                    <TableCell className="text-center">
+                      <Button size="sm" variant="outline" className="h-7 rounded-full text-xs" onClick={() => setMemberDetail({ entry: en, member: m })} data-testid={`pe-member-detail-btn-${en.id}-${m.user_id}`}>
+                        <Eye className="h-3 w-3 mr-1" /> Detail
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {m.received ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700" data-testid={`pe-received-badge-${en.id}-${m.user_id}`}>
+                          <CheckCircle2 className="h-3 w-3" /> DITERIMA
+                        </span>
+                      ) : (
+                        <Button size="sm" variant="outline" className="h-7 rounded-full text-xs border-green-600 text-green-700 hover:bg-green-50"
+                          onClick={() => confirmReceived(en, m)} data-testid={`pe-confirm-btn-${en.id}-${m.user_id}`}>
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Konfirmasi Diterima
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="bg-blue-50/60 border-t-2 border-blue-100">
+                  <TableCell className="font-bold text-slate-900">TOTAL</TableCell>
+                  <TableCell className="text-right font-mono tabular font-bold">{formatIDR(en.total_amount)}</TableCell>
+                  <TableCell className="text-right font-mono tabular font-bold text-orange-700">{en.total_kasbon > 0 ? `- ${formatIDR(en.total_kasbon)}` : "-"}</TableCell>
+                  <TableCell className="text-right font-mono tabular font-bold text-green-700">{formatIDR(en.total_net)}</TableCell>
+                  <TableCell colSpan={2}></TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </Card>
+        ))}
+        {entries.length === 0 && (
+          <Card className="bg-white border-slate-200 py-12 text-center text-slate-500">
+            <Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+            Belum ada entri pembayaran. Klik <b>Buat Pembayaran</b> untuk membuat.
+          </Card>
+        )}
+      </div>
 
       {/* Form Buat Pembayaran per periode */}
       <Dialog open={open} onOpenChange={setOpen}>
@@ -243,69 +271,49 @@ export default function TeamPayments() {
         </DialogContent>
       </Dialog>
 
-      {/* Detail entri */}
-      <Dialog open={!!detail} onOpenChange={(v) => !v && setDetail(null)}>
-        <DialogContent className="bg-white max-w-2xl">
+      {/* Detail lokasi per anggota */}
+      <Dialog open={!!memberDetail} onOpenChange={(v) => !v && setMemberDetail(null)}>
+        <DialogContent className="bg-white max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-blue-700" />
-              Detail Pembayaran — {detail ? (detail.month ? `${monthLabel(detail.month)} · ${periodLabel(detail.period)}` : periodLabel(detail.period)) : ""}
+              <MapPin className="h-4 w-4 text-orange-500" />
+              Lokasi Pekerjaan — {memberDetail?.member?.name}
             </DialogTitle>
           </DialogHeader>
-          {detail && (
-            <div className="space-y-3">
-              <div className="text-sm text-slate-600">Proyek: <span className="font-medium text-slate-900">{(detail.project_names || []).join(", ")}</span></div>
+          {memberDetail && (
+            <div className="space-y-3" data-testid="pe-member-loc-detail">
+              <div className="text-sm text-slate-600">
+                Periode: <span className="font-medium text-slate-900">
+                  {memberDetail.entry.month ? `${monthLabel(memberDetail.entry.month)} · ${periodLabel(memberDetail.entry.period)}` : periodLabel(memberDetail.entry.period)}
+                </span>
+              </div>
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50">
-                      <TableHead>Nama Anggota</TableHead>
-                      <TableHead>Lokasi Pekerjaan</TableHead>
-                      <TableHead className="text-right">Total Hasil</TableHead>
-                      <TableHead className="text-right">Total Kasbon</TableHead>
+                      <TableHead>Lokasi Proyek</TableHead>
+                      <TableHead className="text-right">Hasil</TableHead>
+                      <TableHead className="text-right">Kasbon</TableHead>
                       <TableHead className="text-right">Diterima</TableHead>
-                      <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(detail.members || []).map(m => {
-                      const locs = [...new Set((detail.details || []).filter(d => d.user_name === m.name).map(d => d.location_name))];
-                      return (
-                        <TableRow key={m.user_id} data-testid={`pe-member-detail-row-${m.user_id}`}>
-                          <TableCell className="font-semibold text-slate-900">{m.name}</TableCell>
-                          <TableCell className="text-sm text-slate-600 max-w-[180px]">{locs.join(", ") || "-"}</TableCell>
-                          <TableCell className="text-right font-mono tabular">{formatIDR(m.amount)}</TableCell>
-                          <TableCell className="text-right font-mono tabular text-orange-700">{m.kasbon > 0 ? `- ${formatIDR(m.kasbon)}` : "-"}</TableCell>
-                          <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(m.net)}</TableCell>
-                          <TableCell className="text-center">
-                            {m.received ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700" data-testid={`pe-received-badge-${m.user_id}`}>
-                                <CheckCircle2 className="h-3 w-3" /> DITERIMA
-                              </span>
-                            ) : (
-                              <Button size="sm" variant="outline" className="h-7 rounded-full text-xs border-green-600 text-green-700 hover:bg-green-50"
-                                onClick={() => confirmReceived(m)} data-testid={`pe-confirm-btn-${m.user_id}`}>
-                                <CheckCircle2 className="h-3 w-3 mr-1" /> Konfirmasi Diterima
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {memberLocations(memberDetail.entry, memberDetail.member).map((r, i) => (
+                      <TableRow key={i} data-testid={`pe-member-loc-row-${i}`}>
+                        <TableCell className="font-medium text-slate-900">{r.location_name}</TableCell>
+                        <TableCell className="text-right font-mono tabular">{formatIDR(r.amount)}</TableCell>
+                        <TableCell className="text-right font-mono tabular text-orange-700">{r.kasbon > 0 ? `- ${formatIDR(r.kasbon)}` : "-"}</TableCell>
+                        <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(r.net)}</TableCell>
+                      </TableRow>
+                    ))}
                     <TableRow className="bg-blue-50 border-t-2 border-blue-200">
-                      <TableCell className="font-bold" colSpan={2}>TOTAL</TableCell>
-                      <TableCell className="text-right font-mono tabular font-bold">{formatIDR(detail.total_amount)}</TableCell>
-                      <TableCell className="text-right font-mono tabular font-bold text-orange-700">{detail.total_kasbon > 0 ? `- ${formatIDR(detail.total_kasbon)}` : "-"}</TableCell>
-                      <TableCell className="text-right font-mono tabular font-bold text-green-700">{formatIDR(detail.total_net)}</TableCell>
-                      <TableCell></TableCell>
+                      <TableCell className="font-bold">TOTAL</TableCell>
+                      <TableCell className="text-right font-mono tabular font-bold">{formatIDR(memberDetail.member.amount)}</TableCell>
+                      <TableCell className="text-right font-mono tabular font-bold text-orange-700">{memberDetail.member.kasbon > 0 ? `- ${formatIDR(memberDetail.member.kasbon)}` : "-"}</TableCell>
+                      <TableCell className="text-right font-mono tabular font-bold text-green-700">{formatIDR(memberDetail.member.net)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
-              </div>
-              <div className="flex justify-end">
-                <Button variant="outline" className="rounded-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => downloadPdf(detail)} data-testid="pe-detail-pdf-btn">
-                  <Download className="h-4 w-4 mr-1.5" /> Download PDF
-                </Button>
               </div>
             </div>
           )}
