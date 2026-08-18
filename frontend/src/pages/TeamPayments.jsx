@@ -14,6 +14,7 @@ import {
   Users, ListChecks, Crown, CalendarDays, Hourglass, Undo2, Lock, Receipt,
 } from "lucide-react";
 import { formatIDR, formatDate, formatDateTime, monthLabel } from "@/lib/format";
+import { useAuth } from "@/context/AuthContext";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -24,6 +25,8 @@ const PERIODS = [
 const periodLabel = (v) => PERIODS.find(p => p.value === v)?.label || v;
 
 export default function TeamPayments() {
+  const { user } = useAuth();
+  const canDelete = user.role === "owner";
   const [activeTab, setActiveTab] = useState("waiting");
   const [history, setHistory] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -224,7 +227,7 @@ export default function TeamPayments() {
             <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">{readyListFiltered.length}</span>
           </TabsTrigger>
           <TabsTrigger value="entries" data-testid="tp-tab-entries" className="gap-1.5">
-            <Receipt className="h-3.5 w-3.5" /> Riwayat Entri Pembayaran
+            <Receipt className="h-3.5 w-3.5" /> Entry Pembayaran
             <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">{entries.length}</span>
           </TabsTrigger>
         </TabsList>
@@ -245,9 +248,11 @@ export default function TeamPayments() {
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">Dibuat {formatDateTime(en.created_at)}</div>
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 rounded-full border-red-300 text-red-600 hover:bg-red-50 bg-white" onClick={() => removeEntry(en)} data-testid={`pe-delete-btn-${en.id}`}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {canDelete && (
+                    <Button size="sm" variant="outline" className="h-8 rounded-full border-red-300 text-red-600 hover:bg-red-50 bg-white" onClick={() => removeEntry(en)} data-testid={`pe-delete-btn-${en.id}`}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
                 <Table>
                   <TableHeader>

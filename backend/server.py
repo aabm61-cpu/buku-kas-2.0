@@ -1168,8 +1168,30 @@ async def confirm_payment_received(eid: str, body: ConfirmBody, user=Depends(req
         entry["details"] = await compute_entry_details(entry.get("location_ids", []))
     return entry
 
+@api.get("/my-payment-entries")
+async def my_payment_entries(user=Depends(require_role("tim"))):
+    out = []
+    async for e in db.payment_entries.find({}).sort("created_at", -1):
+        member = next((m for m in e.get("members", []) if m.get("user_id") == user["id"]), None)
+        if not member:
+            continue
+        details = e.get("details") or await compute_entry_details(e.get("location_ids", []))
+        locs = [r for r in details if r.get("user_name") == member.get("name")]
+        out.append({
+            "id": e["id"],
+            "month": e.get("month"),
+            "period": e.get("period"),
+            "created_at": e.get("created_at"),
+            "amount": member.get("amount", 0),
+            "kasbon": member.get("kasbon", 0),
+            "net": member.get("net", 0),
+            "received": member.get("received", False),
+            "locations": locs,
+        })
+    return out
+
 @api.delete("/payment-entries/{eid}")
-async def delete_payment_entry(eid: str, user=Depends(require_role("owner", "bendahara"))):
+async def delete_payment_entry(eid: str, user=Depends(require_role("owner"))):
     res = await db.payment_entries.delete_one({"id": eid})
     if res.deleted_count == 0:
         raise HTTPException(404, "Tidak ditemukan")
