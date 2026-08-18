@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Receipt, Eye, Trash2, Wallet, FolderSearch, AlertTriangle, Download } from "lucide-react";
+import { Plus, Receipt, Eye, Trash2, Wallet, FolderSearch, AlertTriangle, Download, CheckCircle2 } from "lucide-react";
 import { formatIDR, formatDate, formatDateTime, monthLabel } from "@/lib/format";
 
 const PERIODS = [
@@ -83,6 +83,17 @@ export default function TeamPayments() {
       toast.success("PDF berhasil diunduh");
     } catch {
       toast.error("Gagal mengunduh PDF");
+    }
+  };
+
+  const confirmReceived = async (member) => {
+    try {
+      const r = await api.patch(`/payment-entries/${detail.id}/confirm`, { user_id: member.user_id, received: true });
+      setDetail(r.data);
+      setEntries(entries.map(en => (en.id === r.data.id ? r.data : en)));
+      toast.success(`Pembayaran ${member.name} dikonfirmasi diterima`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Gagal konfirmasi");
     }
   };
 
@@ -249,27 +260,44 @@ export default function TeamPayments() {
                   <TableHeader>
                     <TableRow className="bg-slate-50">
                       <TableHead>Nama Anggota</TableHead>
-                      <TableHead>Lokasi Proyek</TableHead>
-                      <TableHead className="text-right">Nilai Pembayaran</TableHead>
-                      <TableHead className="text-right">Kasbon</TableHead>
+                      <TableHead>Lokasi Pekerjaan</TableHead>
+                      <TableHead className="text-right">Total Hasil</TableHead>
+                      <TableHead className="text-right">Total Kasbon</TableHead>
                       <TableHead className="text-right">Diterima</TableHead>
+                      <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(detail.details || []).map((r, i) => (
-                      <TableRow key={i} data-testid={`pe-detail-row-${i}`}>
-                        <TableCell className="font-medium text-slate-900">{r.user_name}</TableCell>
-                        <TableCell className="text-sm">{r.location_name}</TableCell>
-                        <TableCell className="text-right font-mono tabular">{formatIDR(r.amount)}</TableCell>
-                        <TableCell className="text-right font-mono tabular text-orange-700">{r.kasbon > 0 ? `- ${formatIDR(r.kasbon)}` : "-"}</TableCell>
-                        <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(r.net)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {(detail.members || []).map(m => {
+                      const locs = [...new Set((detail.details || []).filter(d => d.user_name === m.name).map(d => d.location_name))];
+                      return (
+                        <TableRow key={m.user_id} data-testid={`pe-member-detail-row-${m.user_id}`}>
+                          <TableCell className="font-semibold text-slate-900">{m.name}</TableCell>
+                          <TableCell className="text-sm text-slate-600 max-w-[180px]">{locs.join(", ") || "-"}</TableCell>
+                          <TableCell className="text-right font-mono tabular">{formatIDR(m.amount)}</TableCell>
+                          <TableCell className="text-right font-mono tabular text-orange-700">{m.kasbon > 0 ? `- ${formatIDR(m.kasbon)}` : "-"}</TableCell>
+                          <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(m.net)}</TableCell>
+                          <TableCell className="text-center">
+                            {m.received ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700" data-testid={`pe-received-badge-${m.user_id}`}>
+                                <CheckCircle2 className="h-3 w-3" /> DITERIMA
+                              </span>
+                            ) : (
+                              <Button size="sm" variant="outline" className="h-7 rounded-full text-xs border-green-600 text-green-700 hover:bg-green-50"
+                                onClick={() => confirmReceived(m)} data-testid={`pe-confirm-btn-${m.user_id}`}>
+                                <CheckCircle2 className="h-3 w-3 mr-1" /> Konfirmasi Diterima
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                     <TableRow className="bg-blue-50 border-t-2 border-blue-200">
                       <TableCell className="font-bold" colSpan={2}>TOTAL</TableCell>
                       <TableCell className="text-right font-mono tabular font-bold">{formatIDR(detail.total_amount)}</TableCell>
                       <TableCell className="text-right font-mono tabular font-bold text-orange-700">{detail.total_kasbon > 0 ? `- ${formatIDR(detail.total_kasbon)}` : "-"}</TableCell>
                       <TableCell className="text-right font-mono tabular font-bold text-green-700">{formatIDR(detail.total_net)}</TableCell>
+                      <TableCell></TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

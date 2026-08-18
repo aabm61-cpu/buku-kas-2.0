@@ -1107,14 +1107,21 @@ async def payment_entry_pdf(eid: str, user=Depends(require_role("owner", "bendah
         Spacer(1, 8),
     ]
 
-    data = [["Nama Anggota", "Lokasi Proyek", "Nilai Pembayaran", "Kasbon", "Diterima"]]
-    for r in details:
-        data.append([r["user_name"], r["location_name"], idr(r["amount"]), f"- {idr(r['kasbon'])}" if r["kasbon"] > 0 else "-", idr(r["net"])])
+    data = [["Nama Anggota", "Lokasi Pekerjaan", "Total Hasil", "Total Kasbon", "Diterima", "Status"]]
+    for m in entry.get("members", []):
+        locs = sorted({r["location_name"] for r in details if r["user_name"] == m.get("name")})
+        data.append([
+            m.get("name", ""), ", ".join(locs) or "-",
+            idr(m.get("amount", 0)),
+            f"- {idr(m.get('kasbon', 0))}" if m.get("kasbon", 0) > 0 else "-",
+            idr(m.get("net", 0)),
+            "Diterima" if m.get("received") else "Belum",
+        ])
     data.append(["TOTAL", "", idr(entry.get("total_amount", 0)),
                  f"- {idr(entry.get('total_kasbon', 0))}" if entry.get("total_kasbon", 0) > 0 else "-",
-                 idr(entry.get("total_net", 0))])
+                 idr(entry.get("total_net", 0)), ""])
 
-    tbl = RLTable(data, colWidths=[38 * mm, 45 * mm, 32 * mm, 28 * mm, 32 * mm], repeatRows=1)
+    tbl = RLTable(data, colWidths=[30 * mm, 43 * mm, 28 * mm, 28 * mm, 28 * mm, 18 * mm], repeatRows=1)
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1d4ed8")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -1134,6 +1141,28 @@ async def payment_entry_pdf(eid: str, user=Depends(require_role("owner", "bendah
     fname = f"pembayaran-tim-{entry.get('month', '')}-{entry.get('period', '')}.pdf"
     return Response(content=buf.getvalue(), media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+class ConfirmBody(BaseModel):
+    user_id: str
+    received: bool = True
+
+@api.patch("/payment-entries/{eid}/confirm")
+async def confirm_payment_received(eid: str, body: ConfirmBody, user=Depends(require_role("owner", "bendahara"))):
+    entry = await db.payment_entries.find_one({"id": eid})
+    if not entry:
+        raise HTTPException(404, "Tidak ditemukan")
+    members = entry.get("members", [])
+    target = next((m for m in members if m.get("user_id") == body.user_id), None)
+    if not target:
+        raise HTTPException(404, "Anggota tidak ditemukan di entri ini")
+    target["received"] = body.received
+    target["received_at"] = now_iso() if body.received else None
+    await db.payment_entries.update_one({"id": eid}, {"$set": {"members": members}})
+    await log_activity(user, "update", "payment_entry", eid, f"Konfirmasi diterima: {target.get('name')} = {body.received}")
+    entry = clean_doc(await db.payment_entries.find_one({"id": eid}))
+    if not entry.get("details"):
+        entry["details"] = await compute_entry_details(entry.get("location_ids", []))
+    return entry
 
 @api.delete("/payment-entries/{eid}")
 async def delete_payment_entry(eid: str, user=Depends(require_role("owner", "bendahara"))):
