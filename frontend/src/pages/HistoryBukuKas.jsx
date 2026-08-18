@@ -86,7 +86,10 @@ export default function HistoryBukuKas() {
                         <Eye className="h-3.5 w-3.5 mr-1.5" /> Lihat Detail
                       </Button>
                       {canReopen && (
-                        <Button size="sm" variant="outline" className="h-8 rounded-full border-orange-500 text-orange-600 hover:bg-orange-50" onClick={() => reopen(b)} data-testid={`history-reopen-btn-${b.id}`}>
+                        <Button size="sm" variant="outline" disabled={!!b.payment_ready}
+                          title={b.payment_ready ? "Proyek sudah Siap Dibayar — kembalikan dulu ke Menunggu Pembayaran di menu Pembayaran Tim" : "Kembalikan buku kas menjadi aktif"}
+                          className="h-8 rounded-full border-orange-500 text-orange-600 hover:bg-orange-50 disabled:border-slate-200 disabled:text-slate-400"
+                          onClick={() => reopen(b)} data-testid={`history-reopen-btn-${b.id}`}>
                           <Undo2 className="h-3.5 w-3.5 mr-1.5" /> Kembali
                         </Button>
                       )}

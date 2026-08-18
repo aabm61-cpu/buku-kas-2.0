@@ -602,6 +602,8 @@ async def reopen_bukukas(lid: str, user=Depends(require_role("owner", "bendahara
         raise HTTPException(404, "Buku kas tidak ditemukan")
     if not loc.get("is_closed"):
         raise HTTPException(400, "Buku kas ini masih aktif")
+    if loc.get("payment_ready"):
+        raise HTTPException(400, "Proyek sudah berstatus Siap Dibayar. Kembalikan dulu ke Menunggu Pembayaran di menu Pembayaran Tim sebelum membuka buku kas.")
     await db.locations.update_one({"id": lid}, {"$set": {"is_closed": False, "payment_ready": False}, "$unset": {"closed_at": "", "closed_by": ""}})
     await log_activity(user, "reopen", "bukukas", lid, f"Kembalikan buku kas {loc['name']} menjadi aktif")
     return {"ok": True}
