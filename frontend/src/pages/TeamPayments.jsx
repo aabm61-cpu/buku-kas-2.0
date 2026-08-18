@@ -56,9 +56,11 @@ export default function TeamPayments() {
 
   const months = [...new Set(history.map(l => (l.closed_at || "").slice(0, 7)).filter(Boolean))].sort().reverse();
   const filteredHistory = month === "all" ? history : history.filter(l => (l.closed_at || "").slice(0, 7) === month);
+  // Lokasi yang sudah dibukukan di entri pembayaran hilang dari tab Siap Dibayar (muncul lagi jika entri dihapus)
+  const bookedIds = new Set(entries.flatMap(en => en.location_ids || []));
   const waitingList = filteredHistory.filter(l => !l.payment_ready);
-  const readyListFiltered = filteredHistory.filter(l => l.payment_ready);
-  const readyListAll = history.filter(l => l.payment_ready);
+  const readyListFiltered = filteredHistory.filter(l => l.payment_ready && !bookedIds.has(l.id));
+  const readyListAll = history.filter(l => l.payment_ready && !bookedIds.has(l.id));
   const fMonths = [...new Set(readyListAll.map(l => (l.closed_at || "").slice(0, 7)).filter(Boolean))].sort().reverse();
 
   const setReady = async (loc, ready) => {

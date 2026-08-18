@@ -1018,7 +1018,11 @@ async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_rol
         day = int(closed_at[8:10])
         return day <= 15 if payload.period == "1-15" else day >= 16
 
-    locs = [l async for l in db.locations.find({"is_closed": True, "payment_ready": True}) if in_range(l.get("closed_at", ""))]
+    booked_ids = set()
+    async for e in db.payment_entries.find({}, {"location_ids": 1}):
+        booked_ids.update(e.get("location_ids", []))
+    locs = [l async for l in db.locations.find({"is_closed": True, "payment_ready": True})
+            if in_range(l.get("closed_at", "")) and l["id"] not in booked_ids]
     if not locs:
         raise HTTPException(400, "Tidak ada proyek Siap Dibayar pada periode ini")
     loc_ids = [l["id"] for l in locs]
