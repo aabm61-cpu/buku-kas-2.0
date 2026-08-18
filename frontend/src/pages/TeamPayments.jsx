@@ -67,18 +67,18 @@ export default function TeamPayments() {
     } finally { setSaving(false); }
   };
 
-  const downloadPdf = async (entry) => {
+  const downloadPdf = async (entry, member) => {
     try {
-      const r = await api.get(`/payment-entries/${entry.id}/pdf`, { responseType: "blob" });
+      const r = await api.get(`/payment-entries/${entry.id}/pdf/${member.user_id}`, { responseType: "blob" });
       const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `pembayaran-tim-${entry.month || ""}-${entry.period || ""}.pdf`;
+      a.download = `pembayaran-${member.name}-${entry.month || ""}-${entry.period || ""}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success("PDF berhasil diunduh");
+      toast.success(`PDF pembayaran ${member.name} berhasil diunduh`);
     } catch {
       toast.error("Gagal mengunduh PDF");
     }
@@ -132,9 +132,6 @@ export default function TeamPayments() {
                 <div className="text-xs text-slate-500 mt-0.5">Dibuat {formatDateTime(en.created_at)}</div>
               </div>
               <div className="inline-flex items-center gap-2">
-                <Button size="sm" variant="outline" className="h-8 rounded-full border-blue-300 text-blue-700 hover:bg-blue-100 bg-white" onClick={() => downloadPdf(en)} data-testid={`pe-pdf-btn-${en.id}`}>
-                  <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
-                </Button>
                 <Button size="sm" variant="outline" className="h-8 rounded-full border-red-300 text-red-600 hover:bg-red-50 bg-white" onClick={() => remove(en)} data-testid={`pe-delete-btn-${en.id}`}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -159,9 +156,14 @@ export default function TeamPayments() {
                     <TableCell className="text-right font-mono tabular text-orange-700">{m.kasbon > 0 ? `- ${formatIDR(m.kasbon)}` : "-"}</TableCell>
                     <TableCell className="text-right font-mono tabular font-semibold text-green-700">{formatIDR(m.net)}</TableCell>
                     <TableCell className="text-center">
-                      <Button size="sm" variant="outline" className="h-7 rounded-full text-xs" onClick={() => setMemberDetail({ entry: en, member: m })} data-testid={`pe-member-detail-btn-${en.id}-${m.user_id}`}>
-                        <Eye className="h-3 w-3 mr-1" /> Detail
-                      </Button>
+                      <div className="inline-flex items-center gap-1.5">
+                        <Button size="sm" variant="outline" className="h-7 rounded-full text-xs" onClick={() => setMemberDetail({ entry: en, member: m })} data-testid={`pe-member-detail-btn-${en.id}-${m.user_id}`}>
+                          <Eye className="h-3 w-3 mr-1" /> Detail
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 rounded-full text-xs border-blue-300 text-blue-700 hover:bg-blue-50" onClick={() => downloadPdf(en, m)} data-testid={`pe-member-pdf-btn-${en.id}-${m.user_id}`}>
+                          <Download className="h-3 w-3 mr-1" /> PDF
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       {m.received ? (

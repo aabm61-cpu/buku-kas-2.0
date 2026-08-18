@@ -1077,12 +1077,16 @@ def month_label_id(ym: str) -> str:
 def idr(n) -> str:
     return f"Rp {n:,.0f}".replace(",", ".")
 
-@api.get("/payment-entries/{eid}/pdf")
-async def payment_entry_pdf(eid: str, user=Depends(require_role("owner", "bendahara"))):
+@api.get("/payment-entries/{eid}/pdf/{user_id}")
+async def payment_entry_member_pdf(eid: str, user_id: str, user=Depends(require_role("owner", "bendahara"))):
     entry = await db.payment_entries.find_one({"id": eid})
     if not entry:
         raise HTTPException(404, "Tidak ditemukan")
+    member = next((m for m in entry.get("members", []) if m.get("user_id") == user_id), None)
+    if not member:
+        raise HTTPException(404, "Anggota tidak ditemukan di entri ini")
     details = entry.get("details") or await compute_entry_details(entry.get("location_ids", []))
+    rows = [r for r in details if r.get("user_name") == member.get("name")]
 
     from io import BytesIO
     from reportlab.lib.pagesizes import A4
@@ -1099,29 +1103,23 @@ async def payment_entry_pdf(eid: str, user=Depends(require_role("owner", "bendah
 
     period_txt = f"{month_label_id(entry.get('month', ''))} - {PERIOD_LABELS.get(entry.get('period', ''), entry.get('period', ''))}"
     created = (entry.get("created_at") or "")[:10]
+    status_txt = "Diterima" if member.get("received") else "Belum Diterima"
     elems = [
-        Paragraph("Rincian Pembayaran Tim", title_style),
+        Paragraph(f"Rincian Pembayaran — {member.get('name', '')}", title_style),
         Paragraph(f"Periode: {period_txt}", sub_style),
         Paragraph(f"Tanggal dibuat: {created}", sub_style),
-        Paragraph(f"Proyek: {', '.join(entry.get('project_names', []))}", sub_style),
+        Paragraph(f"Status pembayaran: {status_txt}", sub_style),
         Spacer(1, 8),
     ]
 
-    data = [["Nama Anggota", "Lokasi Pekerjaan", "Total Hasil", "Total Kasbon", "Diterima", "Status"]]
-    for m in entry.get("members", []):
-        locs = sorted({r["location_name"] for r in details if r["user_name"] == m.get("name")})
-        data.append([
-            m.get("name", ""), ", ".join(locs) or "-",
-            idr(m.get("amount", 0)),
-            f"- {idr(m.get('kasbon', 0))}" if m.get("kasbon", 0) > 0 else "-",
-            idr(m.get("net", 0)),
-            "Diterima" if m.get("received") else "Belum",
-        ])
-    data.append(["TOTAL", "", idr(entry.get("total_amount", 0)),
-                 f"- {idr(entry.get('total_kasbon', 0))}" if entry.get("total_kasbon", 0) > 0 else "-",
-                 idr(entry.get("total_net", 0)), ""])
+    data = [["Lokasi Proyek", "Hasil", "Kasbon", "Diterima"]]
+    for r in rows:
+        data.append([r["location_name"], idr(r["amount"]), f"- {idr(r['kasbon'])}" if r["kasbon"] > 0 else "-", idr(r["net"])])
+    data.append(["TOTAL", idr(member.get("amount", 0)),
+                 f"- {idr(member.get('kasbon', 0))}" if member.get("kasbon", 0) > 0 else "-",
+                 idr(member.get("net", 0))])
 
-    tbl = RLTable(data, colWidths=[30 * mm, 43 * mm, 28 * mm, 28 * mm, 28 * mm, 18 * mm], repeatRows=1)
+    tbl = RLTable(data, colWidths=[65 * mm, 35 * mm, 35 * mm, 35 * mm], repeatRows=1)
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1d4ed8")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -1138,7 +1136,7 @@ async def payment_entry_pdf(eid: str, user=Depends(require_role("owner", "bendah
     elems.append(tbl)
     doc.build(elems)
 
-    fname = f"pembayaran-tim-{entry.get('month', '')}-{entry.get('period', '')}.pdf"
+    fname = f"pembayaran-{(member.get('name') or 'anggota').replace(' ', '-')}-{entry.get('month', '')}-{entry.get('period', '')}.pdf"
     return Response(content=buf.getvalue(), media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
