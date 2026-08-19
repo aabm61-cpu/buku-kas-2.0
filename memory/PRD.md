@@ -108,3 +108,7 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - [ ] Cashbook categories customization
 - [ ] Weekly/monthly summary reports
 - [ ] Multi-currency support
+
+## Update (Feb 2026) - Background Halaman Login
+- Login page diubah: background full-screen gambar logo PT Godel Raya Inovatif (asset user), overlay gradient gelap, form login glass-effect (backdrop-blur) di sisi kanan, tombol Masuk warna amber.
+- File: /app/frontend/src/pages/Login.jsx (rewrite). Verified via screenshot.
