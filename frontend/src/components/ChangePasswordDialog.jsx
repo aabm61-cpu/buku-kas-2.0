@@ -52,7 +52,6 @@ export const ChangePasswordDialog = ({ open, onOpenChange }) => {
           <div>
             <Label>Password Baru</Label>
             <Input data-testid="changepw-new" type="password" value={form.new_password} onChange={e => setForm({ ...form, new_password: e.target.value })} className="h-11 mt-1.5" autoComplete="new-password" />
-            <p className="text-xs text-slate-500 mt-1">Minimal 6 karakter.</p>
           </div>
           <div>
             <Label>Konfirmasi Password Baru</Label>

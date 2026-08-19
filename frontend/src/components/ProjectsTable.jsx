@@ -193,7 +193,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
                       <TableCell className="text-right">
                         <span className="inline-flex items-center gap-2 font-mono tabular font-semibold text-orange-700" data-testid="detail-retensi-nilai">
                           {formatIDR(retValue)}
-                          {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" title="Retensi sudah dibayar" />}
+                          {project.retention_paid && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                         </span>
                       </TableCell>
                     </TableRow>
@@ -205,7 +205,7 @@ function DetailDialog({ project, open, onClose, onSaved }) {
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-          {readOnly && <span className="text-xs text-slate-500 self-center mr-auto">Proyek selesai — hanya bisa dilihat.</span>}
+          {readOnly && <span className="text-xs text-slate-500 self-center mr-auto">Proyek selesai</span>}
           <Button variant="outline" onClick={onClose}>Tutup</Button>
           {!readOnly && <Button data-testid="detail-save-btn" onClick={save} className="bg-blue-700 hover:bg-blue-800">Simpan Perubahan</Button>}
         </div>

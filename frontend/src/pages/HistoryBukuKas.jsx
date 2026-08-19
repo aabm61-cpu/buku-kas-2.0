@@ -72,7 +72,6 @@ export default function HistoryBukuKas() {
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">ARSIP BUKU KAS SELESAI</div>
         <h1 className="font-display font-extrabold text-3xl text-slate-900">Riwayat Buku Kas</h1>
-        <p className="text-slate-500 mt-1">Daftar buku kas yang sudah diselesaikan. Klik Lihat Detail untuk membuka pencatatannya.</p>
       </div>
 
       <Card className="bg-white border-slate-200 overflow-hidden">

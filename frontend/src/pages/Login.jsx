@@ -48,7 +48,6 @@ export default function Login() {
           <div className="mb-8">
             <div className="text-xs tracking-[0.3em] text-amber-400 mb-2">PT GODEL RAYA INOVATIF</div>
             <h2 className="font-display font-extrabold text-3xl text-white">Masuk ke akun</h2>
-            <p className="text-slate-300 mt-2 text-sm">Gunakan username dan kata sandi dari admin.</p>
           </div>
 
           <form onSubmit={submit} className="space-y-5">
@@ -94,11 +93,6 @@ export default function Login() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Masuk →"}
             </Button>
           </form>
-
-          <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300">
-            <div className="font-semibold text-white mb-1">Belum punya akun?</div>
-            Akun dibuat oleh Owner. Hubungi Owner untuk mendapatkan kredensial login.
-          </div>
         </div>
       </div>
     </div>

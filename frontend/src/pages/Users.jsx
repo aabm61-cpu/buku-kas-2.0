@@ -60,7 +60,6 @@ export default function Users() {
         <div>
           <div className="text-xs tracking-widest text-slate-500 mb-2">MANAJEMEN AKSES</div>
           <h1 className="font-display font-extrabold text-3xl text-slate-900">User</h1>
-          <p className="text-slate-500 mt-1">Buat & kelola akun untuk seluruh peran.</p>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm(emptyForm); } }}>
           <DialogTrigger asChild>

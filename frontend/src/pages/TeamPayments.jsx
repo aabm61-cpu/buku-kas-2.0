@@ -196,7 +196,6 @@ export default function TeamPayments() {
         <div>
           <div className="text-xs tracking-widest text-slate-500 mb-2">KELOLA SELURUH ALUR PEMBAYARAN TIM</div>
           <h1 className="font-display font-extrabold text-3xl text-slate-900">Pembayaran Tim</h1>
-          <p className="text-slate-500 mt-1">Isi pembayaran per proyek, tandai Siap Dibayar, lalu bukukan entri pembayaran per periode — semua dari satu tempat.</p>
         </div>
         {activeTab === "entries" ? (
           <Button onClick={openForm} className="rounded-full bg-blue-700 hover:bg-blue-800" data-testid="pe-create-btn">
@@ -310,7 +309,7 @@ export default function TeamPayments() {
             {entries.length === 0 && (
               <Card className="bg-white border-slate-200 py-12 text-center text-slate-500">
                 <Wallet className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                Belum ada entri pembayaran. Klik <b>Buat Pembayaran</b> untuk membuat.
+                Belum ada entri pembayaran.
               </Card>
             )}
           </div>
@@ -330,7 +329,7 @@ export default function TeamPayments() {
           {actionLoc?.payment_ready && (
             <div className="flex items-center gap-2 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2" data-testid="tp-locked-note">
               <Lock className="h-4 w-4 shrink-0" />
-              Data terkunci karena berstatus Siap Dibayar. Tekan tombol Kembali pada tabel untuk memindahkan proyek ke Menunggu Pembayaran sebelum mengedit.
+              Data terkunci — Siap Dibayar.
             </div>
           )}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -350,7 +349,7 @@ export default function TeamPayments() {
                       <span className="inline-flex items-center gap-1.5 font-medium text-slate-900">
                         {r.role_type === "pic" && <Crown className="h-3.5 w-3.5 text-orange-500" />}
                         {r.name}
-                        {r.already_paid && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" title="Sudah pernah disimpan" />}
+                        {r.already_paid && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
                       </span>
                     </TableCell>
                     <TableCell>

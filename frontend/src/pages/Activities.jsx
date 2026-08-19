@@ -21,7 +21,6 @@ export default function Activities() {
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">JEJAK AKSI SELURUH SISTEM</div>
         <h1 className="font-display font-extrabold text-3xl text-slate-900">Log Aktivitas</h1>
-        <p className="text-slate-500 mt-1">200 aksi terbaru dari semua peran.</p>
       </div>
 
       <Card className="bg-white border-slate-200 divide-y divide-slate-100">

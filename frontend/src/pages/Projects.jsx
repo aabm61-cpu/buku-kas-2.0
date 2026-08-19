@@ -34,7 +34,6 @@ export default function Projects() {
           <div>
             <div className="text-xs tracking-widest text-slate-500 mb-2">PORTOFOLIO</div>
             <h1 className="font-display font-extrabold text-3xl text-slate-900">Proyek</h1>
-            <p className="text-slate-500 mt-1">Daftar HUB/SOC — nilai proyek, retensi, penagihan & keterangan bisa diubah langsung dari tabel.</p>
           </div>
           <Button
             data-testid="projects-add-btn"
@@ -58,7 +57,6 @@ export default function Projects() {
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">PORTOFOLIO</div>
         <h1 className="font-display font-extrabold text-3xl text-slate-900">Proyek</h1>
-        <p className="text-slate-500 mt-1">Daftar HUB/SOC yang dikelola perusahaan.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

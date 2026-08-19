@@ -166,7 +166,6 @@ export default function Tagihan() {
         <div>
           <div className="text-xs tracking-widest text-slate-500 mb-2">PENAGIHAN KLIEN</div>
           <h1 className="font-display font-extrabold text-3xl text-slate-900">Tagihan</h1>
-          <p className="text-slate-500 mt-1">Satu tagihan dapat mencakup beberapa proyek, termin, dan retensi.</p>
         </div>
         <div className="flex items-center gap-2">
           {canWrite && (
@@ -183,7 +182,7 @@ export default function Tagihan() {
                         <SelectTrigger data-testid="tagihan-client-select"><SelectValue placeholder="Pilih klien" /></SelectTrigger>
                         <SelectContent className="bg-white">
                           {clients.map(c => <SelectItem key={c.id} value={c.name} data-testid={`tagihan-client-opt-${c.id}`}>{c.name}</SelectItem>)}
-                          {clients.length === 0 && <div className="px-3 py-2 text-sm text-slate-500">Belum ada klien. Tambahkan di menu Klien.</div>}
+                          {clients.length === 0 && <div className="px-3 py-2 text-sm text-slate-500">Belum ada klien.</div>}
                         </SelectContent>
                       </Select>
                     </div>
@@ -192,8 +191,8 @@ export default function Tagihan() {
                   <div>
                     <Label className="mb-2 block">Pilih Proyek Selesai (bisa lebih dari satu)</Label>
                     <div className="border border-slate-200 rounded-lg p-3 max-h-64 overflow-y-auto space-y-2 bg-slate-50">
-                      {!form.client_name && <div className="text-sm text-slate-500">Pilih klien terlebih dahulu untuk melihat proyek selesai miliknya.</div>}
-                      {form.client_name && billableProjects.length === 0 && <div className="text-sm text-slate-500">Tidak ada proyek selesai milik klien ini yang bisa ditagihkan.</div>}
+                      {!form.client_name && <div className="text-sm text-slate-500">Belum ada klien dipilih.</div>}
+                      {form.client_name && billableProjects.length === 0 && <div className="text-sm text-slate-500">Tidak ada proyek yang bisa ditagihkan.</div>}
                       {billableProjects.map(p => {
                         const sel = form.selections[p.id];
                         const val = Number(p.project_value || 0);

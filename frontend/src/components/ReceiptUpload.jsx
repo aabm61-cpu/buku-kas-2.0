@@ -76,7 +76,6 @@ export default function ReceiptUpload({ value, onChange, required = true, testId
         <div className="text-sm font-medium text-slate-700 mb-1">
           Foto Nota {required && <span className="text-red-500">*</span>}
         </div>
-        <div className="text-xs text-slate-500 mb-4">Wajib disertakan sebagai bukti transaksi</div>
         <div className="flex gap-2 justify-center flex-wrap">
           <Button
             type="button"

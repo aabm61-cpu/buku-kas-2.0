@@ -45,7 +45,6 @@ export default function Clients() {
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">MASTER DATA</div>
         <h1 className="font-display font-extrabold text-3xl text-slate-900">Klien</h1>
-        <p className="text-slate-500 mt-1">Daftar nama klien untuk dipilih saat input proyek baru.</p>
       </div>
 
       <Card className="p-5 bg-white border-slate-200">

@@ -69,7 +69,6 @@ export default function Layout() {
             data-testid="sidebar-collapse-btn"
             onClick={() => { setCollapsed(true); setOpenMobile(false); }}
             className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-900"
-            title="Sembunyikan sidebar"
           >
             <PanelLeftClose className="h-4 w-4" />
           </button>
@@ -145,7 +144,6 @@ export default function Layout() {
                 data-testid="sidebar-reveal-btn"
                 className="hidden lg:inline-flex items-center gap-2 h-9 px-3 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 -ml-1"
                 onClick={() => setCollapsed(false)}
-                title="Tampilkan sidebar"
               >
                 <PanelLeftOpen className="h-4 w-4" />
                 <span className="text-xs font-medium">Menu</span>

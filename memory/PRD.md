@@ -112,3 +112,9 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 ## Update (Feb 2026) - Background Halaman Login
 - Login page diubah: background full-screen gambar logo PT Godel Raya Inovatif (asset user), overlay gradient gelap, form login glass-effect (backdrop-blur) di sisi kanan, tombol Masuk warna amber.
 - File: /app/frontend/src/pages/Login.jsx (rewrite). Verified via screenshot.
+
+## Update (Feb 2026) - Pembersihan Teks Panduan (UI Minimalis)
+- Semua teks panduan/petunjuk/tooltip dihapus di seluruh halaman & komponen (subtitle halaman, helper text form, tooltip title, kartu 'Tips Profesional' di Dashboard, box 'Belum punya akun?' di Login).
+- Empty state disederhanakan (mis. 'Belum ada buku kas.' tanpa instruksi klik).
+- File terdampak: Dashboard, CashBook, Tagihan, TeamPayments, MyPayments, Users, Clients, Projects, Locations, History, HistoryBukuKas, Activities, Login, Layout, ProjectsTable, QuickAddProject, ReceiptUpload, ChangePasswordDialog.
+- Verifikasi: login e2e sukses + semua 11 route render tanpa page error (playwright script di /app/backend/tests/test_all_pages.py).

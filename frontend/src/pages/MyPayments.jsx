@@ -32,7 +32,6 @@ export default function MyPayments() {
         <div>
           <div className="text-xs tracking-widest text-slate-500 mb-2">PEMBAYARAN DARI BENDAHARA</div>
           <h1 className="font-display font-extrabold text-3xl text-slate-900">Pembayaran Saya</h1>
-          <p className="text-slate-500 mt-1">Rincian pembayaran Anda yang sudah dientri oleh Bendahara per periode. Hanya bisa dilihat.</p>
         </div>
         <div className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4 text-slate-500" />

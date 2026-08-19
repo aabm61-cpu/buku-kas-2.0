@@ -31,7 +31,6 @@ export default function History() {
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">RIWAYAT TEMPAT PENGERJAAN</div>
         <h1 className="font-display font-extrabold text-3xl text-slate-900">History Lokasi</h1>
-        <p className="text-slate-500 mt-1">Lokasi dengan buku kas yang sudah diselesaikan, diurutkan dari yang terbaru.</p>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">

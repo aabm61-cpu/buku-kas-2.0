@@ -51,7 +51,6 @@ export default function Locations() {
         <div>
           <div className="text-xs tracking-widest text-slate-500 mb-2">TITIK KERJA LAPANGAN</div>
           <h1 className="font-display font-extrabold text-3xl text-slate-900">Lokasi</h1>
-          <p className="text-slate-500 mt-1">Semua lokasi renovasi. Bendahara menetapkan PIC di sini.</p>
         </div>
         {canWrite && (
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm(empty); } }}>

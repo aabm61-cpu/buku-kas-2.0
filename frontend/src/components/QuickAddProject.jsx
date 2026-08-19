@@ -82,7 +82,7 @@ export default function QuickAddProject({ onCreated }) {
                   <SelectValue placeholder={clients.length === 0 ? "Belum ada klien — tambahkan di menu Klien" : "Pilih klien"} />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
-                  {clients.length === 0 && <div className="p-3 text-sm text-slate-500 text-center">Belum ada data klien.<br />Owner dapat menambah di menu Klien.</div>}
+                  {clients.length === 0 && <div className="p-3 text-sm text-slate-500 text-center">Belum ada data klien.</div>}
                   {clients.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>

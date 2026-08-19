@@ -117,7 +117,6 @@ function BendaharaDashboard({ stats }) {
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">RINGKASAN — BENDAHARA</div>
         <h1 className="font-display font-extrabold text-3xl lg:text-4xl text-slate-900">Dashboard Bendahara</h1>
-        <p className="text-slate-500 mt-1">Proyek yang sedang berjalan berdasarkan buku kas aktif dari tim lapangan.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -140,7 +139,6 @@ function BendaharaDashboard({ stats }) {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <div className="text-xs font-semibold tracking-widest text-slate-500">PROYEK BERJALAN · BUKU KAS AKTIF</div>
-          <span className="text-xs text-slate-400">Diurutkan berdasarkan saldo terkecil</span>
         </div>
         {rows.length === 0 ? (
           <Card className="p-10 text-center text-slate-500 bg-white border-slate-200">
@@ -200,7 +198,6 @@ function PenagihanDashboard({ stats }) {
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">RINGKASAN — PENAGIHAN</div>
         <h1 className="font-display font-extrabold text-3xl lg:text-4xl text-slate-900">Dashboard Penagihan</h1>
-        <p className="text-slate-500 mt-1">Ringkasan performa penagihan proyek renovasi.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -234,7 +231,6 @@ export default function Dashboard() {
       <div>
         <div className="text-xs tracking-widest text-slate-500 mb-2">RINGKASAN — {roleLabel(user.role).toUpperCase()}</div>
         <h1 className="font-display font-extrabold text-3xl lg:text-4xl text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Ikhtisar keuangan & aktivitas proyek renovasi.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -265,14 +261,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      <Card className="p-6 bg-gradient-to-br from-blue-700 to-blue-900 text-white border-0 relative overflow-hidden">
-        <div className="relative z-10 max-w-xl">
-          <div className="text-xs tracking-widest text-blue-200 mb-2">TIPS PROFESIONAL</div>
-          <h3 className="font-display font-bold text-xl mb-2">Setiap transaksi wajib difoto</h3>
-          <p className="text-blue-100 text-sm">Semua pencatatan buku kas dari tim lapangan menyertakan foto nota — meminimalkan sengketa dan mempercepat rekonsiliasi bendahara.</p>
-        </div>
-      </Card>
     </div>
   );
 }

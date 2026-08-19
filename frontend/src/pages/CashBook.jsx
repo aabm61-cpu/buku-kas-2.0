@@ -204,7 +204,6 @@ export default function CashBook() {
         <div>
           <div className="text-xs tracking-widest text-slate-500 mb-2">MULTI BUKU KAS · SATU BUKU PER LOKASI PROYEK</div>
           <h1 className="font-display font-extrabold text-3xl text-slate-900">Buku Kas</h1>
-          <p className="text-slate-500 mt-1">Pilih buku kas sesuai lokasi proyek Anda. Setiap buku berdiri sendiri — data tidak tercampur.</p>
         </div>
         {(user.role === "tim" || user.role === "owner") && !selectedLoc && (
           <Button onClick={openCreateDialog} data-testid="bukukas-create-btn" className="rounded-full bg-orange-500 hover:bg-orange-600">
@@ -224,7 +223,7 @@ export default function CashBook() {
         {locations.length === 0 ? (
           <Card className="p-6 text-center text-slate-500 bg-white border-slate-200">
             <BookOpen className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-            Belum ada buku kas. Klik <strong>Buat Buku Kas</strong> untuk mengklaim proyek pertama Anda.
+            Belum ada buku kas.
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -346,7 +345,6 @@ export default function CashBook() {
                                   {activeMembers.map(m => <SelectItem key={m.user_id} value={m.user_id}>{m.name}{m.role_type === "pic" ? " (PIC)" : ""}</SelectItem>)}
                                 </SelectContent>
                               </Select>
-                              <p className="text-xs text-slate-500 mt-1">Diambil dari anggota tim yang sudah ditambahkan di buku kas ini. Foto nota tidak diperlukan untuk kasbon.</p>
                             </div>
                           )}
                           <div><Label>Nominal (Rp) <span className="text-red-500">*</span></Label><Input type="number" data-testid="cashbook-amount-input" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className="h-11 mt-1.5 font-mono tabular" placeholder="0" /></div>
@@ -369,7 +367,7 @@ export default function CashBook() {
 
           {isViewer && (
             <Card className="p-3 bg-slate-50 border-slate-200 flex items-center gap-2 text-sm text-slate-700">
-              <EyeOff className="h-4 w-4" /> Anda tercatat sebagai <strong>peninjau</strong> di buku kas ini — hanya bisa melihat, tidak bisa mencatat.
+              <EyeOff className="h-4 w-4" /> Peninjau
             </Card>
           )}
 
@@ -424,7 +422,7 @@ export default function CashBook() {
                     <TableCell>{(user.role === "owner" || (i.user_id === user.id && !isViewer)) && <Button size="icon" variant="ghost" onClick={() => remove(i.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>}</TableCell>
                   </TableRow>
                 ))}
-                {activeEntries.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8">Buku kas ini masih kosong.{canWrite && ` Tekan "Catatan Baru" untuk mulai.`}</TableCell></TableRow>}
+                {activeEntries.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-8">Buku kas ini masih kosong.</TableCell></TableRow>}
               </TableBody>
             </Table>
           </Card>
@@ -445,7 +443,6 @@ export default function CashBook() {
                   {availableProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name} · {p.work_type}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-500 mt-1.5">Setelah diklaim, proyek ini tidak muncul lagi di dropdown tim lain.</p>
               {(() => {
                 const sp = availableProjects.find(p => p.id === createForm.project_id);
                 if (sp && (sp.work_type === "Addwork" || sp.work_type === "Maintenance") && sp.maintenance_notes) {
@@ -474,7 +471,6 @@ export default function CashBook() {
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-slate-500 mt-1.5">Anggota yang ditambahkan hanya dapat <strong>melihat</strong> buku kas ini, tidak dapat membuat/mengedit catatan.</p>
             </div>
           </div>
           <DialogFooter>
@@ -489,7 +485,6 @@ export default function CashBook() {
         <DialogContent className="bg-white max-w-md">
           <DialogHeader><DialogTitle>Pindah PIC Buku Kas</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">PIC baru akan bisa mencatat pemasukan/pengeluaran. Anda otomatis menjadi peninjau (read-only).</p>
             <Label>Pilih Tim Pengganti</Label>
             <Select value={newPicId} onValueChange={setNewPicId}>
               <SelectTrigger data-testid="transfer-pic-select"><SelectValue placeholder="Pilih anggota tim" /></SelectTrigger>
@@ -510,7 +505,6 @@ export default function CashBook() {
         <DialogContent className="bg-white max-w-md">
           <DialogHeader><DialogTitle>Tambah Anggota Tim (Peninjau)</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-slate-600">Anggota yang ditambahkan hanya bisa <strong>melihat</strong> catatan buku kas ini.</p>
             <div className="border border-slate-200 rounded-lg max-h-56 overflow-y-auto p-2 bg-slate-50">
               {otherTims.length === 0 && <div className="text-sm text-slate-500 p-2 text-center">Semua tim sudah tergabung atau tidak ada tim lain.</div>}
               {otherTims.map(u => (
