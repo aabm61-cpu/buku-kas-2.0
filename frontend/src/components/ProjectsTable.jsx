@@ -225,8 +225,8 @@ function ProjectRow({ p, showComplete, canReopen, onDetail, onComplete, onReopen
             <Briefcase className="h-3 w-3 inline mr-1" />{p.work_type || "-"}
           </span>
         </div>
-        {(p.work_type === "Maintenance" || p.work_type === "Addwork") && p.maintenance_notes && (
-          <div className="text-[10px] text-slate-500 font-normal italic mt-1 max-w-[280px] truncate" title={p.maintenance_notes}>{p.maintenance_notes}</div>
+        {(p.maintenance_notes || p.keterangan) && (
+          <div className="text-[10px] text-slate-500 font-normal italic mt-1 max-w-[280px] truncate">{p.maintenance_notes || p.keterangan}</div>
         )}
       </TableCell>
       <TableCell className="text-slate-700" data-testid={`proj-client-${p.id}`}>{p.client_name || "-"}</TableCell>
@@ -313,7 +313,7 @@ export default function ProjectsTable() {
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">
-              <TableHead>Nama Lokasi & Jenis Pekerjaan</TableHead>
+              <TableHead>Proyek</TableHead>
               <TableHead>Klien</TableHead>
               <TableHead>Status Pekerjaan</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
