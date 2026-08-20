@@ -103,7 +103,7 @@ export default function MyPayments() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50">
-                      <TableHead>Lokasi Proyek</TableHead>
+                      <TableHead>Proyek</TableHead>
                       <TableHead className="text-right">Hasil</TableHead>
                       <TableHead className="text-right">Kasbon</TableHead>
                       <TableHead className="text-right">Diterima</TableHead>

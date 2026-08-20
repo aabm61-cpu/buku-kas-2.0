@@ -118,3 +118,8 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - Empty state disederhanakan (mis. 'Belum ada buku kas.' tanpa instruksi klik).
 - File terdampak: Dashboard, CashBook, Tagihan, TeamPayments, MyPayments, Users, Clients, Projects, Locations, History, HistoryBukuKas, Activities, Login, Layout, ProjectsTable, QuickAddProject, ReceiptUpload, ChangePasswordDialog.
 - Verifikasi: login e2e sukses + semua 11 route render tanpa page error (playwright script di /app/backend/tests/test_all_pages.py).
+
+## Update (Feb 2026) - Kolom Proyek & Sorting Entry Pembayaran
+- Dialog 'Buat Pembayaran' (Entry Pembayaran): kolom 'Nama Proyek/Jenis Pekerjaan/Keterangan' digabung jadi 1 kolom 'Proyek' (3 baris vertikal: nama, jenis pekerjaan, keterangan). Header 'Lokasi Proyek' di dialog detail (TeamPayments & MyPayments) diganti 'Proyek'.
+- Sorting backend GET /api/payment-entries & /api/my-payment-entries: bulan terbaru di atas; dalam bulan sama, periode '16 s/d Akhir Bulan' di atas '1 s/d 15'. Berlaku otomatis saat load & setelah simpan (frontend refetch).
+- Verifikasi: curl backend (16-end di atas 1-15) + playwright UI (urutan grup entry & MyPayments benar, header 'Proyek' tampil). Test: /app/backend/tests/test_payment_sorting_ui.py, test_pe_dialog.py

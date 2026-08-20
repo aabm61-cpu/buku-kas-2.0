@@ -1154,11 +1154,12 @@ async def create_payment_entry(payload: PaymentEntryIn, user=Depends(require_rol
 @api.get("/payment-entries")
 async def list_payment_entries(user=Depends(require_role("owner", "bendahara"))):
     out = []
-    async for e in db.payment_entries.find({}).sort("created_at", -1):
+    async for e in db.payment_entries.find({}):
         e = clean_doc(e)
         if details_stale(e.get("details")):
             e["details"] = await compute_entry_details(e.get("location_ids", []))
         out.append(e)
+    out.sort(key=lambda e: (e.get("month") or "", e.get("period") == "16-end"), reverse=True)
     return out
 
 PERIOD_LABELS = {"1-15": "Tanggal 1 s/d 15", "16-end": "Tanggal 16 s/d Akhir Bulan"}
@@ -1262,7 +1263,7 @@ async def confirm_payment_received(eid: str, body: ConfirmBody, user=Depends(req
 @api.get("/my-payment-entries")
 async def my_payment_entries(user=Depends(require_role("tim"))):
     out = []
-    async for e in db.payment_entries.find({}).sort("created_at", -1):
+    async for e in db.payment_entries.find({}):
         member = next((m for m in e.get("members", []) if m.get("user_id") == user["id"]), None)
         if not member:
             continue
@@ -1281,6 +1282,7 @@ async def my_payment_entries(user=Depends(require_role("tim"))):
             "received": member.get("received", False),
             "locations": locs,
         })
+    out.sort(key=lambda e: (e.get("month") or "", e.get("period") == "16-end"), reverse=True)
     return out
 
 @api.delete("/payment-entries/{eid}")

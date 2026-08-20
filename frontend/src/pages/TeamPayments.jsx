@@ -417,26 +417,27 @@ export default function TeamPayments() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-slate-50">
-                        <TableHead>Nama Proyek</TableHead>
-                        <TableHead>Jenis Pekerjaan</TableHead>
-                        <TableHead>Keterangan</TableHead>
+                        <TableHead>Proyek</TableHead>
                         <TableHead>Tanggal Selesai</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {matched.map(loc => {
                         const proj = projects.find(p => p.id === loc.project_id);
+                        const ket = proj?.maintenance_notes || proj?.keterangan || "";
                         return (
                           <TableRow key={loc.id} data-testid={`pe-proj-row-${loc.id}`}>
-                            <TableCell className="font-semibold text-slate-900">{proj?.name || loc.name}</TableCell>
-                            <TableCell className="text-sm">{proj?.work_type || "-"}</TableCell>
-                            <TableCell className="text-sm text-slate-600 max-w-[180px]">{proj?.maintenance_notes || proj?.keterangan || "-"}</TableCell>
+                            <TableCell>
+                              <div className="font-semibold text-slate-900">{proj?.name || loc.name}</div>
+                              <div className="text-sm text-slate-600 mt-0.5">{proj?.work_type || "-"}</div>
+                              {ket && <div className="text-xs text-slate-500 mt-0.5">{ket}</div>}
+                            </TableCell>
                             <TableCell className="text-sm">{formatDate(loc.closed_at)}</TableCell>
                           </TableRow>
                         );
                       })}
                       {matched.length === 0 && (
-                        <TableRow><TableCell colSpan={4} className="text-center text-slate-500 py-6"><FolderSearch className="h-6 w-6 mx-auto mb-1 text-slate-300" />Tidak ada proyek Siap Dibayar pada periode ini.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={2} className="text-center text-slate-500 py-6"><FolderSearch className="h-6 w-6 mx-auto mb-1 text-slate-300" />Tidak ada proyek Siap Dibayar pada periode ini.</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -471,7 +472,7 @@ export default function TeamPayments() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50">
-                      <TableHead>Lokasi Proyek</TableHead>
+                      <TableHead>Proyek</TableHead>
                       <TableHead className="text-right">Hasil</TableHead>
                       <TableHead className="text-right">Kasbon</TableHead>
                       <TableHead className="text-right">Diterima</TableHead>
