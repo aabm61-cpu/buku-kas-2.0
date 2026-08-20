@@ -370,6 +370,13 @@ async def list_projects(user=Depends(get_current_user)):
     async for row in db.cashbook.aggregate(pipeline):
         first_dates[row["_id"]] = row["start_date"]
         counts[row["_id"]] = row["cnt"]
+    # Derive cashbook closed state from locations (auto-sync with tim closing/reopening)
+    loc_state = {}
+    async for l in db.locations.find({}, {"project_id": 1, "is_closed": 1}):
+        st = loc_state.setdefault(l["project_id"], {"total": 0, "closed": 0})
+        st["total"] += 1
+        if l.get("is_closed"):
+            st["closed"] += 1
     for p in projects:
         p["start_date"] = first_dates.get(p["id"])
         p["cashbook_count"] = counts.get(p["id"], 0)
@@ -379,7 +386,8 @@ async def list_projects(user=Depends(get_current_user)):
         p.setdefault("maintenance_notes", "")
         p.setdefault("retention_percent", 0.0)
         p.setdefault("retention_paid", False)
-        p.setdefault("cashbook_closed", False)
+        st = loc_state.get(p["id"])
+        p["cashbook_closed"] = bool(st and st["total"] > 0 and st["closed"] == st["total"])
         p.setdefault("is_completed", False)
         p.setdefault("end_date", None)
         p.setdefault("keterangan", "")

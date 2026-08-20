@@ -128,3 +128,9 @@ Buat aplikasi akuntansi untuk perusahaan renovasi dengan 4 peran user. Owner: me
 - Header kolom 'Nama Lokasi & Jenis Pekerjaan' diganti 'Proyek' di ProjectsTable.jsx (berlaku untuk tab Proyek Berjalan & Proyek Selesai).
 - Isi kolom: nama lokasi (baris 1), jenis pekerjaan (baris 2), keterangan (baris 3) — keterangan kini tampil untuk semua jenis proyek (maintenance_notes || keterangan), bukan hanya Maintenance/Addwork.
 - Verifikasi playwright: header & isi 3 baris benar di kedua tab (/app/backend/tests/test_projects_column.py).
+
+## Update (Feb 2026) - Sinkronisasi Otomatis Status Pekerjaan
+- Akar masalah: status 'Selesai' membaca flag statis projects.cashbook_closed yang tidak pernah diupdate saat tim menutup buku kas (yang berubah adalah locations.is_closed).
+- Fix di GET /api/projects (server.py): cashbook_closed kini diturunkan real-time dari locations (semua lokasi proyek is_closed=True -> Selesai). Aturan: 0 catatan = Belum Mulai; ada catatan = Sedang Berlangsung; buku kas ditutup = Selesai. Reopen buku kas otomatis mengembalikan status.
+- Detail dialog 'Buku Kas Ditutup' di ProjectsTable ikut sinkron karena membaca field yang sama.
+- Verifikasi: curl /api/projects menunjukkan ketiga status benar sesuai data cashbook & locations.
